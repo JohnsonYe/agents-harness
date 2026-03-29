@@ -11,12 +11,40 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
   },
   "type": "module",
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "ai",
+    "agent",
+    "claude",
+    "anthropic",
+    "orchestrator",
+    "multi-agent",
+    "autonomous",
+    "code-generation",
+    "llm",
+    "developer-tools"
+  ],
+  "author": "JohnsonYe",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JohnsonYe/agents-harness.git"
+  },
+  "homepage": "https://github.com/JohnsonYe/agents-harness#readme",
+  "bugs": {
+    "url": "https://github.com/JohnsonYe/agents-harness/issues"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "commander": "^14.0.3",
     "dotenv": "^17.3.1",
