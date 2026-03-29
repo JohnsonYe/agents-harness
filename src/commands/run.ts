@@ -1,4 +1,5 @@
 import { Harness } from "../core/orchestrator.js";
+import { DashboardServer } from "../dashboard/server.js";
 import { resolveApiKey } from "./config.js";
 import type {
   PhaseStartEvent,
@@ -106,6 +107,19 @@ export async function runCommand(
     console.log("========================================");
   });
 
+  // Dashboard setup
+  let dashboard: DashboardServer | null = null;
+  if (options.dashboard) {
+    dashboard = new DashboardServer(options.port ?? 3117);
+    await dashboard.start();
+    console.log(`Dashboard: ${dashboard.getUrl()}`);
+
+    // Forward all events to dashboard
+    harness.on("event", (event) => {
+      dashboard!.broadcast(event);
+    });
+  }
+
   // Handle SIGINT for graceful shutdown
   const handleSignal = () => {
     console.log("\nReceived interrupt signal. Stopping...");
@@ -122,5 +136,8 @@ export async function runCommand(
     process.exit(1);
   } finally {
     process.off("SIGINT", handleSignal);
+    if (dashboard) {
+      await dashboard.stop();
+    }
   }
 }

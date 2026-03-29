@@ -1,1 +1,313 @@
-<!DOCTYPE html><html><body>Dashboard loading...</body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agent-harness</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    background: #0d1117; color: #c9d1d9; line-height: 1.5; padding: 16px;
+  }
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid #30363d; margin-bottom: 16px;
+  }
+  header h1 { font-size: 16px; font-weight: 600; }
+  .header-stats { display: flex; gap: 16px; font-size: 13px; color: #8b949e; }
+  .header-stats span { color: #c9d1d9; }
+  #connection-dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+    background: #f85149; margin-right: 8px; vertical-align: middle;
+  }
+  #connection-dot.connected { background: #3fb950; }
+
+  .sprint-card {
+    background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+    padding: 12px 16px; margin-bottom: 8px; cursor: pointer; user-select: none;
+  }
+  .sprint-card:hover { border-color: #58a6ff; }
+  .sprint-header {
+    display: flex; align-items: center; gap: 12px; font-size: 14px;
+  }
+  .sprint-header .icon { font-size: 14px; width: 20px; text-align: center; }
+  .sprint-header .name { font-weight: 600; }
+  .sprint-header .meta { margin-left: auto; color: #8b949e; font-size: 12px; }
+  .status-passed { color: #3fb950; }
+  .status-failed { color: #f85149; }
+  .status-progress { color: #d29922; }
+
+  .sprint-details {
+    display: none; margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid #30363d; font-size: 12px;
+  }
+  .sprint-details.open { display: block; }
+  .criteria-list { padding-left: 8px; margin: 4px 0; }
+  .criteria-list .pass { color: #3fb950; }
+  .criteria-list .fail { color: #f85149; }
+  .critique { color: #8b949e; margin-top: 6px; font-style: italic; }
+
+  .activity-section {
+    background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+    margin-top: 16px; max-height: 240px; overflow-y: auto;
+  }
+  .activity-section h2 {
+    font-size: 13px; padding: 10px 16px; border-bottom: 1px solid #30363d;
+    position: sticky; top: 0; background: #161b22; z-index: 1;
+  }
+  .activity-entry {
+    padding: 4px 16px; font-size: 12px; border-bottom: 1px solid #21262d;
+  }
+  .activity-entry .time { color: #8b949e; margin-right: 8px; }
+  .activity-entry .role { color: #58a6ff; margin-right: 4px; }
+
+  .budget-bar {
+    margin-top: 16px; background: #161b22; border: 1px solid #30363d;
+    border-radius: 6px; padding: 10px 16px;
+  }
+  .budget-bar .label {
+    font-size: 12px; color: #8b949e; margin-bottom: 6px;
+    display: flex; justify-content: space-between;
+  }
+  .bar-track {
+    height: 8px; background: #21262d; border-radius: 4px; overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%; background: #58a6ff; border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  .run-complete-banner {
+    text-align: center; padding: 16px; margin-top: 16px;
+    border: 1px solid #30363d; border-radius: 6px; font-size: 14px;
+  }
+  .run-complete-banner.completed { border-color: #3fb950; color: #3fb950; }
+  .run-complete-banner.failed { border-color: #f85149; color: #f85149; }
+  .run-complete-banner.stopped { border-color: #d29922; color: #d29922; }
+
+  .empty-state {
+    text-align: center; color: #8b949e; padding: 48px 16px; font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><span id="connection-dot"></span>agent-harness</h1>
+  <div class="header-stats">
+    <div>Cost: <span id="total-cost">$0.00</span></div>
+    <div>Duration: <span id="duration">0m 0s</span></div>
+  </div>
+</header>
+
+<div id="sprints-container">
+  <div class="empty-state" id="empty-state">Waiting for events...</div>
+</div>
+
+<div class="activity-section">
+  <h2>Activity Stream</h2>
+  <div id="activity-log"></div>
+</div>
+
+<div class="budget-bar">
+  <div class="label">
+    <span>Budget</span>
+    <span id="budget-text">$0.00 / $0.00</span>
+  </div>
+  <div class="bar-track"><div class="bar-fill" id="budget-fill" style="width:0%"></div></div>
+</div>
+
+<div id="run-banner"></div>
+
+<script>
+(function() {
+  const state = {
+    sprints: {},
+    totalCost: 0,
+    budget: 0,
+    activities: [],
+    startTime: Date.now(),
+    runComplete: false,
+    expanded: {},
+  };
+
+  const MAX_ACTIVITIES = 50;
+  let ws = null;
+  let durationInterval = null;
+
+  // --- WebSocket ---
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}`);
+    ws.onopen = () => {
+      document.getElementById('connection-dot').classList.add('connected');
+    };
+    ws.onclose = () => {
+      document.getElementById('connection-dot').classList.remove('connected');
+      setTimeout(connect, 3000);
+    };
+    ws.onerror = () => { ws.close(); };
+    ws.onmessage = (e) => {
+      try { handleEvent(JSON.parse(e.data)); } catch {}
+    };
+  }
+
+  function handleEvent(event) {
+    const { type, data } = event;
+    if (type === 'phase:start') onPhaseStart(data);
+    else if (type === 'agent:activity') onActivity(data);
+    else if (type === 'evaluation') onEvaluation(data);
+    else if (type === 'cost:update') onCostUpdate(data);
+    else if (type === 'sprint:complete') onSprintComplete(data);
+    else if (type === 'run:complete') onRunComplete(data);
+  }
+
+  function ensureSprint(num) {
+    if (!state.sprints[num]) {
+      state.sprints[num] = { status: 'in_progress', attempts: 0, cost: 0, eval: null };
+    }
+    return state.sprints[num];
+  }
+
+  function onPhaseStart(d) {
+    if (d.sprint > 0) {
+      const s = ensureSprint(d.sprint);
+      s.attempts = Math.max(s.attempts, d.attempt || 1);
+    }
+    renderSprints();
+  }
+
+  function onActivity(d) {
+    state.activities.push(d);
+    if (state.activities.length > MAX_ACTIVITIES) state.activities.shift();
+    if (d.sprint > 0) ensureSprint(d.sprint);
+    renderActivity();
+  }
+
+  function onEvaluation(d) {
+    const s = ensureSprint(d.sprint);
+    s.attempts = Math.max(s.attempts, d.attempt);
+    s.eval = d.result;
+    renderSprints();
+  }
+
+  function onCostUpdate(d) {
+    state.totalCost = d.totalCostUsd;
+    state.budget = d.budgetUsd;
+    document.getElementById('total-cost').textContent = `$${d.totalCostUsd.toFixed(2)}`;
+    document.getElementById('budget-text').textContent =
+      `$${d.totalCostUsd.toFixed(2)} / $${d.budgetUsd.toFixed(2)}`;
+    const pct = d.budgetUsd > 0 ? Math.min(100, (d.totalCostUsd / d.budgetUsd) * 100) : 0;
+    document.getElementById('budget-fill').style.width = `${pct}%`;
+  }
+
+  function onSprintComplete(d) {
+    const s = ensureSprint(d.sprint);
+    s.status = d.status;
+    s.attempts = d.attempts;
+    s.cost = d.costUsd;
+    renderSprints();
+  }
+
+  function onRunComplete(d) {
+    state.runComplete = true;
+    if (durationInterval) { clearInterval(durationInterval); durationInterval = null; }
+    document.getElementById('duration').textContent = formatDuration(d.durationMs);
+    document.getElementById('total-cost').textContent = `$${d.totalCostUsd.toFixed(2)}`;
+
+    const banner = document.getElementById('run-banner');
+    const status = d.status;
+    banner.innerHTML = `<div class="run-complete-banner ${status}">Run ${status.toUpperCase()} &mdash; ${d.totalSprints} sprint${d.totalSprints !== 1 ? 's' : ''}, $${d.totalCostUsd.toFixed(2)}, ${formatDuration(d.durationMs)}</div>`;
+  }
+
+  // --- Rendering ---
+  function renderSprints() {
+    const container = document.getElementById('sprints-container');
+    const keys = Object.keys(state.sprints).map(Number).sort((a, b) => a - b);
+    if (keys.length === 0) return;
+
+    document.getElementById('empty-state')?.remove();
+
+    let html = '';
+    for (const num of keys) {
+      const s = state.sprints[num];
+      const icon = s.status === 'passed' ? 'PASS' : s.status === 'failed' ? 'FAIL' : '....';
+      const cls = s.status === 'passed' ? 'status-passed' : s.status === 'failed' ? 'status-failed' : 'status-progress';
+      const isOpen = state.expanded[num] ? 'open' : '';
+
+      html += `<div class="sprint-card" onclick="window.__toggle(${num})">`;
+      html += `<div class="sprint-header">`;
+      html += `<span class="icon ${cls}">[${icon}]</span>`;
+      html += `<span class="name">Sprint ${num}</span>`;
+      html += `<span class="meta">${s.attempts} attempt${s.attempts !== 1 ? 's' : ''} &middot; $${s.cost.toFixed(2)}</span>`;
+      html += `</div>`;
+
+      if (s.eval) {
+        html += `<div class="sprint-details ${isOpen}">`;
+        if (s.eval.passedCriteria.length > 0) {
+          html += `<div class="criteria-list">`;
+          for (const c of s.eval.passedCriteria) html += `<div class="pass">+ ${esc(c)}</div>`;
+          html += `</div>`;
+        }
+        if (s.eval.failedCriteria.length > 0) {
+          html += `<div class="criteria-list">`;
+          for (const c of s.eval.failedCriteria) html += `<div class="fail">- ${esc(c)}</div>`;
+          html += `</div>`;
+        }
+        if (s.eval.critique) {
+          html += `<div class="critique">${esc(s.eval.critique)}</div>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+    }
+    container.innerHTML = html;
+  }
+
+  window.__toggle = function(num) {
+    state.expanded[num] = !state.expanded[num];
+    renderSprints();
+  };
+
+  function renderActivity() {
+    const log = document.getElementById('activity-log');
+    let html = '';
+    for (const a of state.activities) {
+      const t = new Date(a.timestamp).toLocaleTimeString();
+      html += `<div class="activity-entry"><span class="time">${t}</span><span class="role">[${esc(a.role)}]</span> ${esc(a.summary)}</div>`;
+    }
+    log.innerHTML = html;
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // --- Helpers ---
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function formatDuration(ms) {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    if (m < 60) return `${m}m ${rs}s`;
+    const h = Math.floor(m / 60);
+    const rm = m % 60;
+    return `${h}h ${rm}m`;
+  }
+
+  function updateDuration() {
+    if (state.runComplete) return;
+    const elapsed = Date.now() - state.startTime;
+    document.getElementById('duration').textContent = formatDuration(elapsed);
+  }
+
+  // --- Init ---
+  connect();
+  durationInterval = setInterval(updateDuration, 1000);
+})();
+</script>
+</body>
+</html>
