@@ -115,7 +115,10 @@ export async function resumeCommand(options: ResumeOptions): Promise<void> {
   try {
     await harness.resume();
   } catch (error) {
-    console.error(`\nResume failed: ${error instanceof Error ? error.message : String(error)}`);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`\nResume failed: ${msg}`);
+    console.log("\nProgress has been saved. After resolving the issue, resume with:");
+    console.log("  agents-harness resume");
     process.exit(1);
   } finally {
     process.off("SIGINT", handleSignal);
