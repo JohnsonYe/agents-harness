@@ -165,7 +165,8 @@ export class Harness extends EventEmitter {
         await this.executeSprint(s);
       }
     } catch (error) {
-      this.progress.status = "failed";
+      this.progress.status = "stopped";
+      this.progress.stoppedAt = new Date().toISOString();
       this.fileProtocol.writeProgress(this.progress);
       throw error;
     }
@@ -174,11 +175,15 @@ export class Harness extends EventEmitter {
   }
 
   private async executeSprint(sprintNum: number): Promise<void> {
-    this.progress.sprints[sprintNum] = {
-      status: "in_progress",
-      attempts: 0,
-      costUsd: 0,
-    };
+    if (!this.progress.sprints[sprintNum]) {
+      this.progress.sprints[sprintNum] = {
+        status: "in_progress",
+        attempts: 0,
+        costUsd: 0,
+      };
+    } else {
+      this.progress.sprints[sprintNum].status = "in_progress";
+    }
 
     // Contract phase — have planner write a contract for this sprint
     this.updatePhase("contract", sprintNum, 0);

@@ -259,6 +259,72 @@ describe("Harness", () => {
     });
   });
 
+  describe("crash recovery", () => {
+    it("saves progress as stopped when runAgent throws", async () => {
+      const harness = createHarness();
+
+      // Let plan + decompose succeed, then throw during contract phase
+      let callCount = 0;
+      vi.mocked(ContextManager.prototype.runAgent).mockImplementation(
+        async () => {
+          callCount++;
+          if (callCount === 3) {
+            // contract phase — simulate API credit error
+            throw new Error("credit limit exceeded");
+          }
+          return { response: "", costUsd: 0.01 };
+        },
+      );
+
+      await expect(harness.run("Build a feature")).rejects.toThrow(
+        "credit limit exceeded",
+      );
+
+      // Verify progress was saved as "stopped"
+      const writeProgressCalls = vi.mocked(
+        FileProtocol.prototype.writeProgress,
+      ).mock.calls;
+      const lastSavedProgress =
+        writeProgressCalls[writeProgressCalls.length - 1][0];
+
+      expect(lastSavedProgress.status).toBe("stopped");
+      expect(lastSavedProgress.stoppedAt).toBeDefined();
+      // Cost from the two successful calls should be preserved
+      expect(lastSavedProgress.costUsd).toBe(0.02);
+    });
+
+    it("resume preserves existing sprint cost and attempts", async () => {
+      // Simulate a saved progress from a crashed run mid-sprint
+      vi.mocked(FileProtocol.prototype.readProgress).mockReturnValue({
+        status: "stopped",
+        runSpec: "Build a feature",
+        currentSprint: 1,
+        totalSprints: 1,
+        currentAttempt: 1,
+        currentPhase: "generate",
+        startedAt: "2025-01-01T00:00:00.000Z",
+        stoppedAt: "2025-01-01T00:01:00.000Z",
+        costUsd: 0.05,
+        maxBudgetUsd: 50,
+        sprints: {
+          1: {
+            status: "in_progress",
+            attempts: 1,
+            costUsd: 0.03,
+          },
+        },
+      });
+
+      const harness = createHarness();
+      await harness.resume();
+
+      // executeSprint should NOT have reset the sprint's cost/attempts to 0
+      const progress = harness.getProgress();
+      expect(progress.sprints[1].costUsd).toBeGreaterThan(0.03);
+      expect(progress.sprints[1].attempts).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe("stop()", () => {
     it("sets progress to stopped", () => {
       const harness = createHarness();

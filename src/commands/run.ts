@@ -130,9 +130,10 @@ export async function runCommand(
   try {
     await harness.run(spec);
   } catch (error) {
-    console.error(
-      `\nRun failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(`\nRun failed: ${msg}`);
+    console.log("\nProgress has been saved. After resolving the issue, resume with:");
+    console.log("  agents-harness resume");
     process.exit(1);
   } finally {
     process.off("SIGINT", handleSignal);
