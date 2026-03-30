@@ -77,6 +77,12 @@ Give it a feature description and it handles the rest.
 | `--max-budget <n>` | Max total spend in USD | 50 |
 | `--no-dashboard` | Disable the live web dashboard | On |
 | `--port <n>` | Dashboard port | 3117 |
+| `--model <model>` | Claude model for all agents | — |
+| `--planner-model <model>` | Claude model for the planner agent | opus |
+| `--generator-model <model>` | Claude model for the generator agent | opus |
+| `--evaluator-model <model>` | Claude model for the evaluator agent | sonnet |
+
+**Available models:** `opus`, `sonnet`, `haiku` (or full model IDs like `claude-opus-4-6`)
 
 **Examples:**
 
@@ -92,6 +98,12 @@ agents-harness run "Add pagination to the users API" --scope packages/api
 
 # Disable the dashboard for CI or headless environments
 agents-harness run "Build a notification system" --no-dashboard
+
+# Use Sonnet for all agents (cheaper)
+agents-harness run "Add a /health endpoint" --model sonnet
+
+# Mix models — Opus for generation, Sonnet for planning/evaluation
+agents-harness run "Build auth system" --planner-model sonnet --generator-model opus
 ```
 
 ### `init` — Initialize project config (optional)
@@ -160,6 +172,10 @@ Picks up where a stopped or failed run left off. Skips completed sprints.
 | `--max-budget <n>` | Max total spend in USD | 50 |
 | `--no-dashboard` | Disable the live web dashboard | On |
 | `--port <n>` | Dashboard port | 3117 |
+| `--model <model>` | Claude model for all agents | — |
+| `--planner-model <model>` | Claude model for the planner agent | opus |
+| `--generator-model <model>` | Claude model for the generator agent | opus |
+| `--evaluator-model <model>` | Claude model for the evaluator agent | sonnet |
 
 **Example:**
 
@@ -172,6 +188,9 @@ agents-harness resume --max-budget 100
 
 # Resume without dashboard
 agents-harness resume --no-dashboard
+
+# Resume with different models
+agents-harness resume --model sonnet
 ```
 
 ### `config` — Manage global settings
@@ -310,7 +329,7 @@ await harness.run("Add a REST API for managing todos");
 
 | Agent | Model | Role | Tools |
 |-------|-------|------|-------|
-| **Planner** | Sonnet | Writes specs, decomposes into sprints, writes contracts | Read, Write |
+| **Planner** | Opus | Writes specs, decomposes into sprints, writes contracts | Read, Write |
 | **Generator** | Opus | Implements code based on the contract | Read, Edit, Write, Bash, Glob, Grep |
 | **Evaluator** | Sonnet | Critically tests implementation against contract | Read, Bash, Grep, Glob |
 

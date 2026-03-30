@@ -16,6 +16,10 @@ export interface RunOptions {
   maxBudget?: number;
   dashboard?: boolean;
   port?: number;
+  model?: string;
+  plannerModel?: string;
+  generatorModel?: string;
+  evaluatorModel?: string;
 }
 
 function formatDuration(ms: number): string {
@@ -46,7 +50,12 @@ export async function runCommand(
 
   console.log("Starting agents-harness run...");
   console.log(`Spec: ${spec.slice(0, 100)}${spec.length > 100 ? "..." : ""}`);
-  console.log("");
+
+  const models = {
+    planner: options.plannerModel ?? options.model,
+    generator: options.generatorModel ?? options.model,
+    evaluator: options.evaluatorModel ?? options.model,
+  };
 
   const harness = new Harness({
     apiKey,
@@ -54,7 +63,16 @@ export async function runCommand(
     scope: options.scope,
     maxAttemptsPerSprint: options.maxAttempts,
     maxTotalBudgetUsd: options.maxBudget,
+    models,
   });
+
+  const resolvedModels = harness.getModels();
+  console.log("");
+  console.log("Models:");
+  console.log(`  Planner:   ${resolvedModels.planner}`);
+  console.log(`  Generator: ${resolvedModels.generator}`);
+  console.log(`  Evaluator: ${resolvedModels.evaluator}`);
+  console.log("");
 
   // Attach event listeners for terminal output
   harness.on("phase:start", (data: PhaseStartEvent) => {

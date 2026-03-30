@@ -68,9 +68,7 @@ describe("ContextManager", () => {
   describe("getModelForRole", () => {
     it("returns correct default for planner", () => {
       const manager = new ContextManager("key", makeContext());
-      expect(manager.getModelForRole("planner")).toBe(
-        "claude-sonnet-4-5-20250929",
-      );
+      expect(manager.getModelForRole("planner")).toBe("claude-opus-4-6");
     });
 
     it("returns correct default for generator", () => {
@@ -83,6 +81,33 @@ describe("ContextManager", () => {
       expect(manager.getModelForRole("evaluator")).toBe(
         "claude-sonnet-4-5-20250929",
       );
+    });
+
+    it("CLI override takes priority over default", () => {
+      const manager = new ContextManager("key", makeContext(), {
+        planner: "haiku",
+      });
+      expect(manager.getModelForRole("planner")).toBe(
+        "claude-haiku-4-5-20251001",
+      );
+    });
+
+    it("CLI override takes priority over config", () => {
+      const ctx = makeContext();
+      ctx.config = { agents: { planner: { model: "sonnet" } } };
+      const manager = new ContextManager("key", ctx, {
+        planner: "haiku",
+      });
+      expect(manager.getModelForRole("planner")).toBe(
+        "claude-haiku-4-5-20251001",
+      );
+    });
+
+    it("accepts full model ID as CLI override", () => {
+      const manager = new ContextManager("key", makeContext(), {
+        generator: "claude-opus-4-6",
+      });
+      expect(manager.getModelForRole("generator")).toBe("claude-opus-4-6");
     });
   });
 
@@ -187,7 +212,7 @@ describe("ContextManager", () => {
       expect(mockQuery).toHaveBeenCalledOnce();
       const callArgs = mockQuery.mock.calls[0][0];
       expect(callArgs.prompt).toBe("Create a plan");
-      expect(callArgs.options.model).toBe("claude-sonnet-4-5-20250929");
+      expect(callArgs.options.model).toBe("claude-opus-4-6");
       expect(callArgs.options.systemPrompt).toBe("system-prompt-for-planner");
       expect(callArgs.options.tools).toEqual(["Read", "Write"]);
       expect(callArgs.options.maxTurns).toBe(30);

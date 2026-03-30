@@ -23,6 +23,10 @@ program
   .option("--max-budget <n>", "Max total budget in USD", parseFloat)
   .option("--no-dashboard", "Disable live dashboard")
   .option("--port <n>", "Dashboard port", parseInt)
+  .option("--model <model>", "Claude model for all agents (opus, sonnet, haiku)")
+  .option("--planner-model <model>", "Claude model for the planner agent")
+  .option("--generator-model <model>", "Claude model for the generator agent")
+  .option("--evaluator-model <model>", "Claude model for the evaluator agent")
   .action((spec: string, options) => {
     runCommand(spec, options);
   });
@@ -47,6 +51,10 @@ program
   .option("--max-budget <n>", "Max total budget in USD", parseFloat)
   .option("--no-dashboard", "Disable live dashboard")
   .option("--port <n>", "Dashboard port", parseInt)
+  .option("--model <model>", "Claude model for all agents (opus, sonnet, haiku)")
+  .option("--planner-model <model>", "Claude model for the planner agent")
+  .option("--generator-model <model>", "Claude model for the generator agent")
+  .option("--evaluator-model <model>", "Claude model for the evaluator agent")
   .action((options) => {
     resumeCommand(options);
   });

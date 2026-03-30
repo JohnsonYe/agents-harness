@@ -5,7 +5,7 @@ import type {
   HarnessEvent,
   AgentRole,
 } from "./types.js";
-import { ContextManager } from "./context-manager.js";
+import { ContextManager, type ModelOverrides } from "./context-manager.js";
 import { FileProtocol } from "./file-protocol.js";
 import { buildProjectContext } from "../discovery/project-context.js";
 
@@ -16,6 +16,7 @@ export interface HarnessOptions {
   maxAttemptsPerSprint?: number; // default: 3
   maxBudgetPerSprintUsd?: number; // default: 5
   maxTotalBudgetUsd?: number; // default: 50
+  models?: ModelOverrides;
 }
 
 export class Harness extends EventEmitter {
@@ -45,7 +46,7 @@ export class Harness extends EventEmitter {
         opts.maxTotalBudgetUsd ?? config?.maxTotalBudgetUsd ?? 50,
     };
 
-    this.contextManager = new ContextManager(opts.apiKey, projectContext);
+    this.contextManager = new ContextManager(opts.apiKey, projectContext, opts.models);
     this.fileProtocol = new FileProtocol(opts.root);
     this.progress = this.initProgress("");
   }
@@ -325,5 +326,13 @@ export class Harness extends EventEmitter {
 
   getProgress(): Progress {
     return { ...this.progress };
+  }
+
+  getModels(): Record<string, string> {
+    return {
+      planner: this.contextManager.getModelForRole("planner"),
+      generator: this.contextManager.getModelForRole("generator"),
+      evaluator: this.contextManager.getModelForRole("evaluator"),
+    };
   }
 }

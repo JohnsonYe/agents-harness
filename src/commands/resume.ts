@@ -25,6 +25,10 @@ export interface ResumeOptions {
   maxBudget?: number;
   dashboard?: boolean;
   port?: number;
+  model?: string;
+  plannerModel?: string;
+  generatorModel?: string;
+  evaluatorModel?: string;
 }
 
 export async function resumeCommand(options: ResumeOptions): Promise<void> {
@@ -38,13 +42,27 @@ export async function resumeCommand(options: ResumeOptions): Promise<void> {
   const root = process.cwd();
 
   console.log("Resuming agents-harness run...");
-  console.log("");
+
+  const models = {
+    planner: options.plannerModel ?? options.model,
+    generator: options.generatorModel ?? options.model,
+    evaluator: options.evaluatorModel ?? options.model,
+  };
 
   const harness = new Harness({
     apiKey,
     root,
     maxTotalBudgetUsd: options.maxBudget,
+    models,
   });
+
+  const resolvedModels = harness.getModels();
+  console.log("");
+  console.log("Models:");
+  console.log(`  Planner:   ${resolvedModels.planner}`);
+  console.log(`  Generator: ${resolvedModels.generator}`);
+  console.log(`  Evaluator: ${resolvedModels.evaluator}`);
+  console.log("");
 
   // Same event listeners as run command
   harness.on("phase:start", (data: PhaseStartEvent) => {

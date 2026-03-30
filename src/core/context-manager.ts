@@ -10,7 +10,7 @@ const MODEL_MAP: Record<string, string> = {
 
 // Default models per role
 const DEFAULT_MODELS: Record<AgentRole, string> = {
-  planner: "sonnet",
+  planner: "opus",
   generator: "opus",
   evaluator: "sonnet",
 };
@@ -40,16 +40,28 @@ export interface RunAgentOptions {
   onActivity?: (tool: string, summary: string) => void;
 }
 
+export interface ModelOverrides {
+  planner?: string;
+  generator?: string;
+  evaluator?: string;
+}
+
 export class ContextManager {
   private apiKey: string;
   private projectContext: ProjectContext;
+  private modelOverrides: ModelOverrides;
 
-  constructor(apiKey: string, projectContext: ProjectContext) {
+  constructor(apiKey: string, projectContext: ProjectContext, modelOverrides?: ModelOverrides) {
     this.apiKey = apiKey;
     this.projectContext = projectContext;
+    this.modelOverrides = modelOverrides ?? {};
   }
 
   getModelForRole(role: AgentRole): string {
+    // Priority: CLI override > config.yaml > default
+    const cliModel = this.modelOverrides[role];
+    if (cliModel) return MODEL_MAP[cliModel] ?? cliModel;
+
     const config = this.projectContext.config;
     const configModel = config?.agents?.[role]?.model;
     const shortName = configModel ?? DEFAULT_MODELS[role];
