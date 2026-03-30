@@ -143,10 +143,22 @@ export interface RunCompleteEvent {
   durationMs: number;
 }
 
+export interface FileUpdateEvent {
+  name: string;
+  content: string;
+}
+
+export interface StateSnapshotEvent {
+  files: Record<string, string | null>;
+  progress: Progress | null;
+}
+
 export type HarnessEvent =
   | { type: "phase:start"; data: PhaseStartEvent }
   | { type: "agent:activity"; data: AgentActivityEvent }
   | { type: "evaluation"; data: EvaluationEvent }
   | { type: "cost:update"; data: CostUpdateEvent }
   | { type: "sprint:complete"; data: SprintCompleteEvent }
-  | { type: "run:complete"; data: RunCompleteEvent };
+  | { type: "run:complete"; data: RunCompleteEvent }
+  | { type: "file:update"; data: FileUpdateEvent }
+  | { type: "state:snapshot"; data: StateSnapshotEvent };

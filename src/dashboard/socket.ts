@@ -5,8 +5,17 @@ import type { HarnessEvent } from "../core/types.js";
 export class WebSocketBroadcaster {
   private wss: WebSocketServer;
 
-  constructor(server: Server) {
+  constructor(server: Server, getSnapshot?: () => HarnessEvent | null) {
     this.wss = new WebSocketServer({ server });
+
+    if (getSnapshot) {
+      this.wss.on("connection", (client) => {
+        const snapshot = getSnapshot();
+        if (snapshot && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(snapshot));
+        }
+      });
+    }
   }
 
   broadcast(event: HarnessEvent): void {

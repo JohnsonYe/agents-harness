@@ -6,162 +6,430 @@
 <title>agents-harness</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
-    background: #0d1117; color: #c9d1d9; line-height: 1.5; padding: 16px;
+  :root {
+    --bg: #0d1117; --bg-card: #161b22; --border: #30363d; --border-hover: #58a6ff;
+    --text: #c9d1d9; --text-dim: #8b949e; --text-bright: #f0f6fc;
+    --blue: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    --font: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
   }
-  header {
+  body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; }
+
+  /* === HEADER === */
+  .header {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; border-bottom: 1px solid #30363d; margin-bottom: 16px;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
   }
-  header h1 { font-size: 16px; font-weight: 600; }
-  .header-stats { display: flex; gap: 16px; font-size: 13px; color: #8b949e; }
-  .header-stats span { color: #c9d1d9; }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header h1 { font-size: 15px; font-weight: 600; }
   #connection-dot {
-    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
-    background: #f85149; margin-right: 8px; vertical-align: middle;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--red); display: inline-block;
   }
-  #connection-dot.connected { background: #3fb950; }
+  #connection-dot.connected { background: var(--green); }
+  .header-stats { display: flex; gap: 16px; font-size: 12px; color: var(--text-dim); }
+  .header-stats span { color: var(--text); }
 
+  /* === PHASE PIPELINE === */
+  .pipeline {
+    display: flex; align-items: center; gap: 0; padding: 14px 20px;
+    border-bottom: 1px solid var(--border); overflow-x: auto;
+  }
+  .phase-step {
+    display: flex; align-items: center; gap: 0; white-space: nowrap;
+  }
+  .phase-dot {
+    width: 28px; height: 28px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-size: 10px; font-weight: 700;
+    border: 2px solid var(--border); color: var(--text-dim); background: var(--bg);
+    transition: all 0.3s;
+  }
+  .phase-label {
+    font-size: 11px; color: var(--text-dim); margin-left: 6px; margin-right: 6px;
+    transition: color 0.3s;
+  }
+  .phase-connector {
+    width: 24px; height: 2px; background: var(--border); margin: 0 2px;
+    transition: background 0.3s;
+  }
+  .phase-step.done .phase-dot { border-color: var(--green); color: var(--green); background: rgba(63,185,80,0.1); }
+  .phase-step.done .phase-label { color: var(--green); }
+  .phase-step.done + .phase-step .phase-connector,
+  .phase-step.done .phase-connector { background: var(--green); }
+  .phase-step.active .phase-dot {
+    border-color: var(--blue); color: var(--blue); background: rgba(88,166,255,0.15);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .phase-step.active .phase-label { color: var(--blue); font-weight: 600; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(88,166,255,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(88,166,255,0); }
+  }
+
+  .sprint-label {
+    padding: 6px 20px; font-size: 12px; color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+  .sprint-label strong { color: var(--text); }
+
+  /* === MAIN SPLIT === */
+  .main {
+    display: grid; grid-template-columns: 320px 1fr;
+    height: calc(100vh - 170px); min-height: 300px;
+  }
+
+  /* === LEFT: SPRINT LIST === */
+  .sprint-list {
+    border-right: 1px solid var(--border); overflow-y: auto; padding: 8px;
+  }
   .sprint-card {
-    background: #161b22; border: 1px solid #30363d; border-radius: 6px;
-    padding: 12px 16px; margin-bottom: 8px; cursor: pointer; user-select: none;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; margin-bottom: 6px; cursor: pointer; user-select: none;
+    transition: border-color 0.2s;
   }
-  .sprint-card:hover { border-color: #58a6ff; }
-  .sprint-header {
-    display: flex; align-items: center; gap: 12px; font-size: 14px;
-  }
-  .sprint-header .icon { font-size: 14px; width: 20px; text-align: center; }
-  .sprint-header .name { font-weight: 600; }
-  .sprint-header .meta { margin-left: auto; color: #8b949e; font-size: 12px; }
-  .status-passed { color: #3fb950; }
-  .status-failed { color: #f85149; }
-  .status-progress { color: #d29922; }
+  .sprint-card:hover { border-color: var(--border-hover); }
+  .sprint-card.selected { border-color: var(--blue); border-left: 3px solid var(--blue); }
+  .sprint-card-header { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .sprint-icon { font-size: 13px; width: 18px; text-align: center; }
+  .sprint-icon.passed { color: var(--green); }
+  .sprint-icon.failed { color: var(--red); }
+  .sprint-icon.in_progress { color: var(--yellow); }
+  .sprint-icon.pending { color: var(--text-dim); }
+  .sprint-name { font-weight: 600; font-size: 13px; }
+  .sprint-meta { margin-left: auto; color: var(--text-dim); font-size: 11px; }
 
-  .sprint-details {
-    display: none; margin-top: 10px; padding-top: 10px;
-    border-top: 1px solid #30363d; font-size: 12px;
+  .sprint-eval {
+    margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px;
   }
-  .sprint-details.open { display: block; }
-  .criteria-list { padding-left: 8px; margin: 4px 0; }
-  .criteria-list .pass { color: #3fb950; }
-  .criteria-list .fail { color: #f85149; }
-  .critique { color: #8b949e; margin-top: 6px; font-style: italic; }
+  .crit-pass { color: var(--green); }
+  .crit-fail { color: var(--red); }
+  .critique-text { color: var(--text-dim); font-style: italic; margin-top: 4px; }
 
-  .activity-section {
-    background: #161b22; border: 1px solid #30363d; border-radius: 6px;
-    margin-top: 16px; max-height: 240px; overflow-y: auto;
+  .empty-state { text-align: center; color: var(--text-dim); padding: 40px 12px; font-size: 13px; }
+
+  /* === RIGHT: FILE VIEWER === */
+  .file-viewer { display: flex; flex-direction: column; overflow: hidden; }
+  .file-tabs {
+    display: flex; border-bottom: 1px solid var(--border); background: var(--bg-card);
+    overflow-x: auto; flex-shrink: 0;
   }
-  .activity-section h2 {
-    font-size: 13px; padding: 10px 16px; border-bottom: 1px solid #30363d;
-    position: sticky; top: 0; background: #161b22; z-index: 1;
+  .file-tab {
+    padding: 8px 14px; font-size: 12px; color: var(--text-dim); cursor: pointer;
+    border-bottom: 2px solid transparent; white-space: nowrap; position: relative;
+    transition: color 0.2s, border-color 0.2s; user-select: none;
   }
+  .file-tab:hover { color: var(--text); }
+  .file-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .file-tab .badge {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--blue);
+    position: absolute; top: 6px; right: 6px; display: none;
+  }
+  .file-tab .badge.show { display: block; }
+  .file-content {
+    flex: 1; overflow-y: auto; padding: 16px 20px; font-size: 12px;
+    white-space: pre-wrap; word-wrap: break-word; line-height: 1.6;
+    color: var(--text);
+  }
+  .file-content .empty-file { color: var(--text-dim); font-style: italic; }
+
+  /* === BOTTOM: ACTIVITY + BUDGET === */
+  .bottom-bar {
+    border-top: 1px solid var(--border);
+  }
+  .activity-toggle {
+    padding: 8px 20px; font-size: 12px; color: var(--text-dim); cursor: pointer;
+    display: flex; align-items: center; gap: 6px; user-select: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .activity-toggle:hover { color: var(--text); }
+  .activity-toggle .arrow { transition: transform 0.2s; display: inline-block; }
+  .activity-toggle .arrow.open { transform: rotate(90deg); }
+  .activity-stream {
+    max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+    background: var(--bg-card);
+  }
+  .activity-stream.open { max-height: 200px; overflow-y: auto; }
   .activity-entry {
-    padding: 4px 16px; font-size: 12px; border-bottom: 1px solid #21262d;
+    padding: 3px 20px; font-size: 11px; border-bottom: 1px solid #21262d;
   }
-  .activity-entry .time { color: #8b949e; margin-right: 8px; }
-  .activity-entry .role { color: #58a6ff; margin-right: 4px; }
+  .activity-entry .time { color: var(--text-dim); margin-right: 6px; }
+  .activity-entry .role { color: var(--blue); margin-right: 4px; }
 
-  .budget-bar {
-    margin-top: 16px; background: #161b22; border: 1px solid #30363d;
-    border-radius: 6px; padding: 10px 16px;
-  }
-  .budget-bar .label {
-    font-size: 12px; color: #8b949e; margin-bottom: 6px;
+  .budget-bar { padding: 8px 20px; }
+  .budget-label {
+    font-size: 11px; color: var(--text-dim); margin-bottom: 4px;
     display: flex; justify-content: space-between;
   }
-  .bar-track {
-    height: 8px; background: #21262d; border-radius: 4px; overflow: hidden;
-  }
-  .bar-fill {
-    height: 100%; background: #58a6ff; border-radius: 4px;
-    transition: width 0.3s ease;
-  }
+  .bar-track { height: 6px; background: #21262d; border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--blue); border-radius: 3px; transition: width 0.3s ease; }
 
-  .run-complete-banner {
-    text-align: center; padding: 16px; margin-top: 16px;
-    border: 1px solid #30363d; border-radius: 6px; font-size: 14px;
+  .run-banner {
+    text-align: center; padding: 12px; margin: 8px 20px; font-size: 13px;
+    border: 1px solid var(--border); border-radius: 6px; display: none;
   }
-  .run-complete-banner.completed { border-color: #3fb950; color: #3fb950; }
-  .run-complete-banner.failed { border-color: #f85149; color: #f85149; }
-  .run-complete-banner.stopped { border-color: #d29922; color: #d29922; }
-
-  .empty-state {
-    text-align: center; color: #8b949e; padding: 48px 16px; font-size: 14px;
-  }
+  .run-banner.show { display: block; }
+  .run-banner.completed { border-color: var(--green); color: var(--green); }
+  .run-banner.failed { border-color: var(--red); color: var(--red); }
+  .run-banner.stopped { border-color: var(--yellow); color: var(--yellow); }
 </style>
 </head>
 <body>
-<header>
-  <h1><span id="connection-dot"></span>agents-harness</h1>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <span id="connection-dot"></span>
+    <h1>agents-harness</h1>
+  </div>
   <div class="header-stats">
     <div>Cost: <span id="total-cost">$0.00</span></div>
-    <div>Duration: <span id="duration">0m 0s</span></div>
+    <div>Duration: <span id="duration">0s</span></div>
   </div>
-</header>
-
-<div id="sprints-container">
-  <div class="empty-state" id="empty-state">Waiting for events...</div>
 </div>
 
-<div class="activity-section">
-  <h2>Activity Stream</h2>
-  <div id="activity-log"></div>
-</div>
+<!-- Phase Pipeline -->
+<div class="pipeline" id="pipeline"></div>
 
-<div class="budget-bar">
-  <div class="label">
-    <span>Budget</span>
-    <span id="budget-text">$0.00 / $0.00</span>
+<!-- Sprint Label -->
+<div class="sprint-label" id="sprint-label">Waiting for run to start...</div>
+
+<!-- Main Split -->
+<div class="main">
+  <!-- Left: Sprint List -->
+  <div class="sprint-list" id="sprint-list">
+    <div class="empty-state" id="sprint-empty">No sprints yet</div>
   </div>
-  <div class="bar-track"><div class="bar-fill" id="budget-fill" style="width:0%"></div></div>
+
+  <!-- Right: File Viewer -->
+  <div class="file-viewer">
+    <div class="file-tabs" id="file-tabs"></div>
+    <div class="file-content" id="file-content">
+      <span class="empty-file">Select a file tab to view contents</span>
+    </div>
+  </div>
 </div>
 
-<div id="run-banner"></div>
+<!-- Bottom -->
+<div class="bottom-bar">
+  <div class="activity-toggle" id="activity-toggle">
+    <span class="arrow" id="activity-arrow">&#9654;</span> Activity Stream
+    <span id="activity-count" style="margin-left:auto;font-size:11px"></span>
+  </div>
+  <div class="activity-stream" id="activity-stream"></div>
+  <div class="budget-bar">
+    <div class="budget-label">
+      <span>Budget</span>
+      <span id="budget-text">$0.00 / $0.00</span>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="budget-fill" style="width:0%"></div></div>
+  </div>
+  <div class="run-banner" id="run-banner"></div>
+</div>
 
 <script>
 (function() {
-  const state = {
+  // --- Constants ---
+  var PHASES = ['plan', 'decompose', 'contract', 'generate', 'evaluate', 'handoff'];
+  var FILE_TABS = [
+    { key: 'spec.md', label: 'Spec' },
+    { key: 'sprints.md', label: 'Sprints' },
+    { key: 'contract.md', label: 'Contract' },
+    { key: 'evaluation.md', label: 'Evaluation' },
+    { key: 'handoff.md', label: 'Handoff' },
+  ];
+  var PHASE_TO_TAB = {
+    plan: 'spec.md', decompose: 'sprints.md', contract: 'contract.md',
+    generate: 'contract.md', evaluate: 'evaluation.md', handoff: 'handoff.md',
+  };
+  var MAX_ACTIVITIES = 100;
+
+  // --- State ---
+  var state = {
     sprints: {},
+    files: {},
+    activities: [],
     totalCost: 0,
     budget: 0,
-    activities: [],
     startTime: Date.now(),
     runComplete: false,
-    expanded: {},
+    currentPhase: null,
+    currentSprint: 0,
+    totalSprints: 0,
+    currentAttempt: 0,
+    selectedSprint: null,
+    activeTab: 'spec.md',
+    tabBadges: {},
+    activityOpen: false,
   };
 
-  const MAX_ACTIVITIES = 50;
-  let ws = null;
-  let durationInterval = null;
+  var ws = null;
+  var durationInterval = null;
 
-  // --- WebSocket ---
-  function connect() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${proto}//${location.host}`);
-    ws.onopen = () => {
-      document.getElementById('connection-dot').classList.add('connected');
-    };
-    ws.onclose = () => {
-      document.getElementById('connection-dot').classList.remove('connected');
-      setTimeout(connect, 3000);
-    };
-    ws.onerror = () => { ws.close(); };
-    ws.onmessage = (e) => {
-      try { handleEvent(JSON.parse(e.data)); } catch {}
-    };
+  // --- Init DOM ---
+  buildPipeline();
+  buildFileTabs();
+
+  // --- Pipeline ---
+  function buildPipeline() {
+    var el = document.getElementById('pipeline');
+    var html = '';
+    for (var i = 0; i < PHASES.length; i++) {
+      var p = PHASES[i];
+      if (i > 0) html += '<div class="phase-connector" id="conn-' + i + '"></div>';
+      html += '<div class="phase-step" id="phase-' + p + '">';
+      html += '<div class="phase-dot">' + (i + 1) + '</div>';
+      html += '<span class="phase-label">' + p.charAt(0).toUpperCase() + p.slice(1) + '</span>';
+      html += '</div>';
+    }
+    el.innerHTML = html;
   }
 
-  function handleEvent(event) {
-    const { type, data } = event;
-    if (type === 'phase:start') onPhaseStart(data);
-    else if (type === 'agent:activity') onActivity(data);
-    else if (type === 'evaluation') onEvaluation(data);
-    else if (type === 'cost:update') onCostUpdate(data);
-    else if (type === 'sprint:complete') onSprintComplete(data);
-    else if (type === 'run:complete') onRunComplete(data);
+  function updatePipeline() {
+    var activeIdx = PHASES.indexOf(state.currentPhase);
+    for (var i = 0; i < PHASES.length; i++) {
+      var el = document.getElementById('phase-' + PHASES[i]);
+      el.className = 'phase-step';
+      if (i < activeIdx) el.className += ' done';
+      else if (i === activeIdx) el.className += ' active';
+    }
   }
 
+  // --- File Tabs ---
+  function buildFileTabs() {
+    var container = document.getElementById('file-tabs');
+    var html = '';
+    for (var i = 0; i < FILE_TABS.length; i++) {
+      var t = FILE_TABS[i];
+      var cls = t.key === state.activeTab ? ' active' : '';
+      html += '<div class="file-tab' + cls + '" data-key="' + t.key + '" onclick="window.__selectTab(\'' + t.key + '\')">';
+      html += t.label;
+      html += '<span class="badge" id="badge-' + t.key.replace('.', '-') + '"></span>';
+      html += '</div>';
+    }
+    container.innerHTML = html;
+  }
+
+  window.__selectTab = function(key) {
+    state.activeTab = key;
+    state.tabBadges[key] = false;
+    renderFileTabs();
+    renderFileContent();
+  };
+
+  function renderFileTabs() {
+    var tabs = document.getElementById('file-tabs').children;
+    for (var i = 0; i < tabs.length; i++) {
+      var tab = tabs[i];
+      var key = tab.getAttribute('data-key');
+      tab.className = 'file-tab' + (key === state.activeTab ? ' active' : '');
+      var badge = tab.querySelector('.badge');
+      if (badge) badge.className = 'badge' + (state.tabBadges[key] ? ' show' : '');
+    }
+  }
+
+  function renderFileContent() {
+    var el = document.getElementById('file-content');
+    var content = state.files[state.activeTab];
+    if (content) {
+      el.textContent = content;
+    } else {
+      el.innerHTML = '<span class="empty-file">No content yet — file will appear when the agent writes to it</span>';
+    }
+  }
+
+  // --- Sprint List ---
+  function renderSprints() {
+    var container = document.getElementById('sprint-list');
+    var keys = Object.keys(state.sprints).map(Number).sort(function(a,b){return a-b;});
+    if (keys.length === 0) return;
+
+    var emptyEl = document.getElementById('sprint-empty');
+    if (emptyEl) emptyEl.remove();
+
+    var html = '';
+    for (var i = 0; i < keys.length; i++) {
+      var num = keys[i];
+      var s = state.sprints[num];
+      var sel = state.selectedSprint === num ? ' selected' : '';
+      var iconCls = s.status || 'pending';
+      var iconChar = s.status === 'passed' ? '&#10003;' : s.status === 'failed' ? '&#10007;' : s.status === 'in_progress' ? '&#9679;' : '&#9675;';
+
+      html += '<div class="sprint-card' + sel + '" onclick="window.__selectSprint(' + num + ')">';
+      html += '<div class="sprint-card-header">';
+      html += '<span class="sprint-icon ' + iconCls + '">' + iconChar + '</span>';
+      html += '<span class="sprint-name">Sprint ' + num + '</span>';
+      html += '<span class="sprint-meta">' + (s.attempts || 0) + ' att &middot; $' + (s.cost || 0).toFixed(2) + '</span>';
+      html += '</div>';
+
+      if (s.eval) {
+        html += '<div class="sprint-eval">';
+        if (s.eval.passedCriteria && s.eval.passedCriteria.length > 0) {
+          for (var j = 0; j < s.eval.passedCriteria.length; j++) {
+            html += '<div class="crit-pass">+ ' + esc(s.eval.passedCriteria[j]) + '</div>';
+          }
+        }
+        if (s.eval.failedCriteria && s.eval.failedCriteria.length > 0) {
+          for (var j = 0; j < s.eval.failedCriteria.length; j++) {
+            html += '<div class="crit-fail">- ' + esc(s.eval.failedCriteria[j]) + '</div>';
+          }
+        }
+        if (s.eval.critique) {
+          html += '<div class="critique-text">' + esc(s.eval.critique.slice(0, 200)) + '</div>';
+        }
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    container.innerHTML = html;
+  }
+
+  window.__selectSprint = function(num) {
+    state.selectedSprint = num;
+    renderSprints();
+  };
+
+  // --- Sprint Label ---
+  function updateSprintLabel() {
+    var el = document.getElementById('sprint-label');
+    if (state.currentSprint > 0) {
+      var parts = ['<strong>Sprint ' + state.currentSprint + '</strong>'];
+      if (state.totalSprints > 0) parts[0] += ' of ' + state.totalSprints;
+      if (state.currentAttempt > 0) parts.push('Attempt ' + state.currentAttempt);
+      if (state.currentPhase) parts.push(state.currentPhase.charAt(0).toUpperCase() + state.currentPhase.slice(1) + ' phase');
+      el.innerHTML = parts.join(' &mdash; ');
+    } else if (state.currentPhase) {
+      el.innerHTML = '<strong>' + state.currentPhase.charAt(0).toUpperCase() + state.currentPhase.slice(1) + '</strong> phase';
+    } else if (state.runComplete) {
+      el.innerHTML = 'Run complete';
+    } else {
+      el.innerHTML = 'Waiting for run to start...';
+    }
+  }
+
+  // --- Activity ---
+  function renderActivity() {
+    var el = document.getElementById('activity-stream');
+    var html = '';
+    for (var i = 0; i < state.activities.length; i++) {
+      var a = state.activities[i];
+      var t = new Date(a.timestamp).toLocaleTimeString();
+      html += '<div class="activity-entry">';
+      html += '<span class="time">' + t + '</span>';
+      html += '<span class="role">[' + esc(a.role) + ']</span> ';
+      html += esc(a.summary);
+      html += '</div>';
+    }
+    el.innerHTML = html;
+    el.scrollTop = el.scrollHeight;
+    document.getElementById('activity-count').textContent = state.activities.length > 0 ? '(' + state.activities.length + ')' : '';
+  }
+
+  document.getElementById('activity-toggle').addEventListener('click', function() {
+    state.activityOpen = !state.activityOpen;
+    document.getElementById('activity-stream').className = 'activity-stream' + (state.activityOpen ? ' open' : '');
+    document.getElementById('activity-arrow').className = 'arrow' + (state.activityOpen ? ' open' : '');
+  });
+
+  // --- Event Handlers ---
   function ensureSprint(num) {
     if (!state.sprints[num]) {
       state.sprints[num] = { status: 'in_progress', attempts: 0, cost: 0, eval: null };
@@ -169,142 +437,175 @@
     return state.sprints[num];
   }
 
-  function onPhaseStart(d) {
-    if (d.sprint > 0) {
-      const s = ensureSprint(d.sprint);
-      s.attempts = Math.max(s.attempts, d.attempt || 1);
-    }
-    renderSprints();
-  }
+  function handleEvent(event) {
+    var type = event.type;
+    var data = event.data;
 
-  function onActivity(d) {
-    state.activities.push(d);
-    if (state.activities.length > MAX_ACTIVITIES) state.activities.shift();
-    if (d.sprint > 0) ensureSprint(d.sprint);
-    renderActivity();
-  }
-
-  function onEvaluation(d) {
-    const s = ensureSprint(d.sprint);
-    s.attempts = Math.max(s.attempts, d.attempt);
-    s.eval = d.result;
-    renderSprints();
-  }
-
-  function onCostUpdate(d) {
-    state.totalCost = d.totalCostUsd;
-    state.budget = d.budgetUsd;
-    document.getElementById('total-cost').textContent = `$${d.totalCostUsd.toFixed(2)}`;
-    document.getElementById('budget-text').textContent =
-      `$${d.totalCostUsd.toFixed(2)} / $${d.budgetUsd.toFixed(2)}`;
-    const pct = d.budgetUsd > 0 ? Math.min(100, (d.totalCostUsd / d.budgetUsd) * 100) : 0;
-    document.getElementById('budget-fill').style.width = `${pct}%`;
-  }
-
-  function onSprintComplete(d) {
-    const s = ensureSprint(d.sprint);
-    s.status = d.status;
-    s.attempts = d.attempts;
-    s.cost = d.costUsd;
-    renderSprints();
-  }
-
-  function onRunComplete(d) {
-    state.runComplete = true;
-    if (durationInterval) { clearInterval(durationInterval); durationInterval = null; }
-    document.getElementById('duration').textContent = formatDuration(d.durationMs);
-    document.getElementById('total-cost').textContent = `$${d.totalCostUsd.toFixed(2)}`;
-
-    const banner = document.getElementById('run-banner');
-    const status = d.status;
-    banner.innerHTML = `<div class="run-complete-banner ${status}">Run ${status.toUpperCase()} &mdash; ${d.totalSprints} sprint${d.totalSprints !== 1 ? 's' : ''}, $${d.totalCostUsd.toFixed(2)}, ${formatDuration(d.durationMs)}</div>`;
-  }
-
-  // --- Rendering ---
-  function renderSprints() {
-    const container = document.getElementById('sprints-container');
-    const keys = Object.keys(state.sprints).map(Number).sort((a, b) => a - b);
-    if (keys.length === 0) return;
-
-    document.getElementById('empty-state')?.remove();
-
-    let html = '';
-    for (const num of keys) {
-      const s = state.sprints[num];
-      const icon = s.status === 'passed' ? 'PASS' : s.status === 'failed' ? 'FAIL' : '....';
-      const cls = s.status === 'passed' ? 'status-passed' : s.status === 'failed' ? 'status-failed' : 'status-progress';
-      const isOpen = state.expanded[num] ? 'open' : '';
-
-      html += `<div class="sprint-card" onclick="window.__toggle(${num})">`;
-      html += `<div class="sprint-header">`;
-      html += `<span class="icon ${cls}">[${icon}]</span>`;
-      html += `<span class="name">Sprint ${num}</span>`;
-      html += `<span class="meta">${s.attempts} attempt${s.attempts !== 1 ? 's' : ''} &middot; $${s.cost.toFixed(2)}</span>`;
-      html += `</div>`;
-
-      if (s.eval) {
-        html += `<div class="sprint-details ${isOpen}">`;
-        if (s.eval.passedCriteria.length > 0) {
-          html += `<div class="criteria-list">`;
-          for (const c of s.eval.passedCriteria) html += `<div class="pass">+ ${esc(c)}</div>`;
-          html += `</div>`;
-        }
-        if (s.eval.failedCriteria.length > 0) {
-          html += `<div class="criteria-list">`;
-          for (const c of s.eval.failedCriteria) html += `<div class="fail">- ${esc(c)}</div>`;
-          html += `</div>`;
-        }
-        if (s.eval.critique) {
-          html += `<div class="critique">${esc(s.eval.critique)}</div>`;
-        }
-        html += `</div>`;
+    if (type === 'phase:start') {
+      state.currentPhase = data.phase;
+      state.currentSprint = data.sprint;
+      state.currentAttempt = data.attempt;
+      if (data.sprint > 0) {
+        var s = ensureSprint(data.sprint);
+        s.attempts = Math.max(s.attempts, data.attempt || 1);
+        if (!state.selectedSprint) state.selectedSprint = data.sprint;
       }
-      html += `</div>`;
+      updatePipeline();
+      updateSprintLabel();
+      renderSprints();
+      // Auto-switch tab
+      var tabKey = PHASE_TO_TAB[data.phase];
+      if (tabKey) {
+        state.activeTab = tabKey;
+        state.tabBadges[tabKey] = false;
+        renderFileTabs();
+        renderFileContent();
+      }
     }
-    container.innerHTML = html;
+    else if (type === 'agent:activity') {
+      state.activities.push(data);
+      if (state.activities.length > MAX_ACTIVITIES) state.activities.shift();
+      if (data.sprint > 0) ensureSprint(data.sprint);
+      renderActivity();
+    }
+    else if (type === 'evaluation') {
+      var s = ensureSprint(data.sprint);
+      s.attempts = Math.max(s.attempts, data.attempt);
+      s.eval = data.result;
+      renderSprints();
+    }
+    else if (type === 'cost:update') {
+      state.totalCost = data.totalCostUsd;
+      state.budget = data.budgetUsd;
+      document.getElementById('total-cost').textContent = '$' + data.totalCostUsd.toFixed(2);
+      document.getElementById('budget-text').textContent =
+        '$' + data.totalCostUsd.toFixed(2) + ' / $' + data.budgetUsd.toFixed(2);
+      var pct = data.budgetUsd > 0 ? Math.min(100, (data.totalCostUsd / data.budgetUsd) * 100) : 0;
+      document.getElementById('budget-fill').style.width = pct + '%';
+    }
+    else if (type === 'sprint:complete') {
+      var s = ensureSprint(data.sprint);
+      s.status = data.status;
+      s.attempts = data.attempts;
+      s.cost = data.costUsd;
+      renderSprints();
+    }
+    else if (type === 'run:complete') {
+      state.runComplete = true;
+      if (durationInterval) { clearInterval(durationInterval); durationInterval = null; }
+      document.getElementById('duration').textContent = formatDuration(data.durationMs);
+      document.getElementById('total-cost').textContent = '$' + data.totalCostUsd.toFixed(2);
+      updateSprintLabel();
+
+      var banner = document.getElementById('run-banner');
+      banner.className = 'run-banner show ' + data.status;
+      banner.textContent = 'Run ' + data.status.toUpperCase() +
+        ' \u2014 ' + data.totalSprints + ' sprint' + (data.totalSprints !== 1 ? 's' : '') +
+        ', $' + data.totalCostUsd.toFixed(2) +
+        ', ' + formatDuration(data.durationMs);
+    }
+    else if (type === 'file:update') {
+      state.files[data.name] = data.content;
+      if (data.name === state.activeTab) {
+        renderFileContent();
+      } else {
+        state.tabBadges[data.name] = true;
+        renderFileTabs();
+      }
+    }
+    else if (type === 'state:snapshot') {
+      // Restore files
+      if (data.files) {
+        for (var key in data.files) {
+          if (data.files[key] !== null) {
+            state.files[key] = data.files[key];
+          }
+        }
+      }
+      // Restore progress
+      if (data.progress) {
+        var p = data.progress;
+        state.currentPhase = p.currentPhase;
+        state.currentSprint = p.currentSprint;
+        state.totalSprints = p.totalSprints;
+        state.currentAttempt = p.currentAttempt;
+        state.totalCost = p.costUsd || 0;
+        state.budget = p.maxBudgetUsd || 0;
+        if (p.sprints) {
+          for (var sn in p.sprints) {
+            state.sprints[sn] = {
+              status: p.sprints[sn].status,
+              attempts: p.sprints[sn].attempts,
+              cost: p.sprints[sn].costUsd || 0,
+              eval: null,
+            };
+          }
+        }
+        if (p.status === 'completed' || p.status === 'failed' || p.status === 'stopped') {
+          state.runComplete = true;
+        }
+      }
+      // Re-render everything
+      updatePipeline();
+      updateSprintLabel();
+      renderSprints();
+      renderFileTabs();
+      renderFileContent();
+      if (state.totalCost > 0) {
+        document.getElementById('total-cost').textContent = '$' + state.totalCost.toFixed(2);
+      }
+      if (state.budget > 0) {
+        document.getElementById('budget-text').textContent =
+          '$' + state.totalCost.toFixed(2) + ' / $' + state.budget.toFixed(2);
+        var pct = Math.min(100, (state.totalCost / state.budget) * 100);
+        document.getElementById('budget-fill').style.width = pct + '%';
+      }
+    }
   }
 
-  window.__toggle = function(num) {
-    state.expanded[num] = !state.expanded[num];
-    renderSprints();
-  };
-
-  function renderActivity() {
-    const log = document.getElementById('activity-log');
-    let html = '';
-    for (const a of state.activities) {
-      const t = new Date(a.timestamp).toLocaleTimeString();
-      html += `<div class="activity-entry"><span class="time">${t}</span><span class="role">[${esc(a.role)}]</span> ${esc(a.summary)}</div>`;
-    }
-    log.innerHTML = html;
-    log.scrollTop = log.scrollHeight;
+  // --- WebSocket ---
+  function connect() {
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(proto + '//' + location.host);
+    ws.onopen = function() {
+      document.getElementById('connection-dot').classList.add('connected');
+    };
+    ws.onclose = function() {
+      document.getElementById('connection-dot').classList.remove('connected');
+      setTimeout(connect, 3000);
+    };
+    ws.onerror = function() { ws.close(); };
+    ws.onmessage = function(e) {
+      try { handleEvent(JSON.parse(e.data)); } catch(err) { console.error('WS parse error', err); }
+    };
   }
 
   // --- Helpers ---
   function esc(s) {
-    const d = document.createElement('div');
+    if (!s) return '';
+    var d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
   }
 
   function formatDuration(ms) {
-    const s = Math.floor(ms / 1000);
-    if (s < 60) return `${s}s`;
-    const m = Math.floor(s / 60);
-    const rs = s % 60;
-    if (m < 60) return `${m}m ${rs}s`;
-    const h = Math.floor(m / 60);
-    const rm = m % 60;
-    return `${h}h ${rm}m`;
+    var s = Math.floor(ms / 1000);
+    if (s < 60) return s + 's';
+    var m = Math.floor(s / 60);
+    var rs = s % 60;
+    if (m < 60) return m + 'm ' + rs + 's';
+    var h = Math.floor(m / 60);
+    var rm = m % 60;
+    return h + 'h ' + rm + 'm';
   }
 
   function updateDuration() {
     if (state.runComplete) return;
-    const elapsed = Date.now() - state.startTime;
+    var elapsed = Date.now() - state.startTime;
     document.getElementById('duration').textContent = formatDuration(elapsed);
   }
 
-  // --- Init ---
+  // --- Boot ---
   connect();
   durationInterval = setInterval(updateDuration, 1000);
 })();
