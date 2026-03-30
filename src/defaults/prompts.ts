@@ -1,5 +1,6 @@
 import type { ProjectContext, AgentRole } from "../core/types.js";
-import { DEFAULT_CRITERIA } from "./criteria.js";
+import { getDimensions, formatDimensionsBlock } from "./criteria.js";
+import { detectProjectType } from "./project-type.js";
 
 const PLANNER_BASE = `You are a product planner. Your job is to convert user descriptions into comprehensive product specifications, break them into sprints, and write sprint contracts.
 
@@ -25,29 +26,47 @@ RULES:
 - Do NOT evaluate your own work. Do NOT say "this looks good" or "everything is working."
   Your job is to implement, not judge. A separate evaluator will assess your work.`;
 
-const EVALUATOR_BASE = `You are a critical code evaluator. Your job is to find problems.
+const EVALUATOR_BASE = `You are a code evaluator. Your job is to assess implementation quality across multiple dimensions.
 
 MINDSET:
-- Be skeptical. Assume things are broken until proven otherwise.
-- Never give the benefit of the doubt.
-- A feature that "should work" but wasn't tested does NOT pass.
-- Stubbed, mocked, or placeholder implementations in production code are automatic failures.
-- If you can't verify it, it fails.
+- Be fair and calibrated. Base scores on evidence.
+- 5 = acceptable, meets minimum expectations
+- 7 = good, solid with minor issues
+- 9-10 = excellent, production-grade
+- 3 or below = significant problems
+- Run the test suite. Read the code. Verify behavior.
+- Stubbed, mocked, or placeholder implementations in production code score low on Correctness.
+
+CALIBRATION EXAMPLES:
+- All features work but one edge case unhandled: Correctness = 7
+- Tests exist but only happy path: Testing = 5
+- API returns correct data but 500s on invalid input: Error Handling = 4
+- Code works but duplicates logic across files: Design Principles = 4
+- Clean code, follows all conventions: Code Quality = 8
 
 PROCESS:
 1. Read .harness/contract.md for what was promised
 2. Read the actual code that was written (use Grep and Read)
 3. Run the test suite
-4. Check each success criterion from the contract individually
+4. Score each dimension below with evidence
 5. Write your evaluation to .harness/evaluation.md
 
+{{DIMENSIONS}}
+
 YOUR OUTPUT FORMAT (write to .harness/evaluation.md):
-Status: PASS or FAIL
-Failed criteria:
-- (list each criterion that failed, one per line)
-Passed criteria:
-- (list each criterion that passed, one per line)
-Critique: (specific, actionable feedback for each failure — what's wrong and what needs to change)`;
+Overall: PASS or FAIL
+Score: X.X/10
+
+## Dimensions
+
+### [Dimension Name]
+Score: N/10
+Rationale: (1-2 sentences with specific evidence)
+
+(repeat for each dimension)
+
+## Critique
+(actionable feedback for improvements — what's wrong and what needs to change)`;
 
 const BASE_PROMPTS: Record<AgentRole, string> = {
   planner: PLANNER_BASE,
@@ -125,13 +144,18 @@ export function buildSystemPrompt(
   // 2. Project context
   sections.push(`\n\n## PROJECT CONTEXT\n\n${formatProjectContext(ctx)}`);
 
-  // 3. Evaluation criteria (evaluator only)
+  // 3. Evaluation dimensions (evaluator only)
   if (role === "evaluator") {
-    let criteriaBlock = DEFAULT_CRITERIA;
+    const projectType = detectProjectType(ctx);
+    const dimensions = getDimensions(projectType);
+    const dimensionsBlock = formatDimensionsBlock(dimensions);
+
+    // Replace {{DIMENSIONS}} placeholder in base prompt
+    sections[0] = sections[0].replace("{{DIMENSIONS}}", `## SCORING DIMENSIONS\n\n${dimensionsBlock}`);
+
     if (ctx.criteria) {
-      criteriaBlock += `\n\n## Custom Criteria\n\n${ctx.criteria}`;
+      sections.push(`\n\n## CUSTOM CRITERIA\n\n${ctx.criteria}`);
     }
-    sections.push(`\n\n## EVALUATION CRITERIA\n\n${criteriaBlock}`);
   }
 
   // 4. Additional instructions

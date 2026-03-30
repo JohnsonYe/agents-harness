@@ -123,13 +123,48 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("## PROJECT CONTEXT");
   });
 
-  it("builds evaluator prompt with skepticism directive", () => {
+  it("builds evaluator prompt with calibrated mindset", () => {
     const ctx = makeContext();
     const prompt = buildSystemPrompt("evaluator", ctx);
 
-    expect(prompt).toContain("You are a critical code evaluator");
-    expect(prompt).toContain("Be skeptical");
+    expect(prompt).toContain("fair and calibrated");
     expect(prompt).toContain("## PROJECT CONTEXT");
+    expect(prompt).toContain("## SCORING DIMENSIONS");
+  });
+
+  it("evaluator prompt for Vite context contains UI/UX Quality", () => {
+    const ctx = makeContext();
+    const prompt = buildSystemPrompt("evaluator", ctx);
+
+    // Vite is a frontend framework, so frontend dimensions should be included
+    expect(prompt).toContain("UI/UX Quality");
+    expect(prompt).toContain("Component Architecture");
+    expect(prompt).toContain("Accessibility");
+  });
+
+  it("evaluator prompt for Django context contains API Design", () => {
+    const ctx = makeContext({
+      workspaces: [
+        {
+          path: ".",
+          stack: {
+            language: "python",
+            framework: "django",
+            testRunner: "pytest",
+            testCommand: "pytest",
+            lintCommand: null,
+            buildCommand: null,
+            devServer: null,
+          },
+          claudeMd: null,
+        },
+      ],
+    });
+    const prompt = buildSystemPrompt("evaluator", ctx);
+
+    expect(prompt).toContain("API Design");
+    expect(prompt).toContain("Data Integrity");
+    expect(prompt).toContain("Concurrency Safety");
   });
 
   it("includes CLAUDE.md content when present in context", () => {
@@ -149,9 +184,7 @@ describe("buildSystemPrompt", () => {
     });
     const prompt = buildSystemPrompt("evaluator", ctx);
 
-    expect(prompt).toContain("## EVALUATION CRITERIA");
-    expect(prompt).toContain("## Default Evaluation Criteria");
-    expect(prompt).toContain("## Custom Criteria");
+    expect(prompt).toContain("## CUSTOM CRITERIA");
     expect(prompt).toContain("All API endpoints return proper status codes");
     expect(prompt).toContain("Rate limiting is enforced");
   });
@@ -164,23 +197,40 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Always use tabs for indentation.");
   });
 
-  it("does not include criteria section for generator", () => {
+  it("does not include scoring dimensions for generator", () => {
     const ctx = makeContext({
       criteria: "- Custom criterion",
     });
     const prompt = buildSystemPrompt("generator", ctx);
 
-    expect(prompt).not.toContain("## EVALUATION CRITERIA");
-    expect(prompt).not.toContain("## Default Evaluation Criteria");
+    expect(prompt).not.toContain("## SCORING DIMENSIONS");
+    expect(prompt).not.toContain("## CUSTOM CRITERIA");
   });
 
-  it("does not include criteria section for planner", () => {
+  it("does not include scoring dimensions for planner", () => {
     const ctx = makeContext({
       criteria: "- Custom criterion",
     });
     const prompt = buildSystemPrompt("planner", ctx);
 
-    expect(prompt).not.toContain("## EVALUATION CRITERIA");
-    expect(prompt).not.toContain("## Default Evaluation Criteria");
+    expect(prompt).not.toContain("## SCORING DIMENSIONS");
+    expect(prompt).not.toContain("## CUSTOM CRITERIA");
+  });
+
+  it("evaluator prompt contains calibration examples", () => {
+    const ctx = makeContext();
+    const prompt = buildSystemPrompt("evaluator", ctx);
+
+    expect(prompt).toContain("CALIBRATION EXAMPLES");
+    expect(prompt).toContain("Correctness = 7");
+  });
+
+  it("planner and generator prompts are unchanged", () => {
+    const ctx = makeContext();
+    const plannerPrompt = buildSystemPrompt("planner", ctx);
+    const generatorPrompt = buildSystemPrompt("generator", ctx);
+
+    expect(plannerPrompt).toContain("Focus on WHAT to build, not HOW to implement it");
+    expect(generatorPrompt).toContain("Implement EXACTLY what the contract specifies");
   });
 });

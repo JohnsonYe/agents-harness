@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { stringify as toYaml, parse as parseYaml } from "yaml";
-import type { Progress, EvalResult } from "./types.js";
+import type { Progress, EvalResult, EvalDimension, DimensionScore } from "./types.js";
 
 const EPHEMERAL_FILES = ["contract.md", "evaluation.md", "handoff.md", "sprints.md", "events.json"];
 
@@ -55,7 +55,7 @@ export class FileProtocol {
     return parseYaml(content) as Progress;
   }
 
-  parseEvaluation(): EvalResult {
+  parseEvaluation(knownDimensions?: EvalDimension[]): EvalResult {
     const content = this.readFile("evaluation.md");
     if (content === null) {
       return {
@@ -66,6 +66,85 @@ export class FileProtocol {
       };
     }
 
+    if (content.includes("## Dimensions")) {
+      return this.parseScoredEvaluation(content, knownDimensions);
+    }
+    return this.parseLegacyEvaluation(content);
+  }
+
+  private parseScoredEvaluation(content: string, knownDimensions?: EvalDimension[]): EvalResult {
+    const thresholdMap = new Map<string, number>();
+    if (knownDimensions) {
+      for (const dim of knownDimensions) {
+        thresholdMap.set(dim.name.toLowerCase(), dim.threshold);
+      }
+    }
+
+    // Parse overall score from header
+    let overallScore = 0;
+    const scoreMatch = content.match(/^Score:\s*([\d.]+)\s*\/\s*10/m);
+    if (scoreMatch) {
+      overallScore = parseFloat(scoreMatch[1]);
+    }
+
+    // Extract critique section
+    let critique = "";
+    const critiqueMatch = content.match(/## Critique\s*\n([\s\S]*?)$/);
+    if (critiqueMatch) {
+      critique = critiqueMatch[1].trim();
+    }
+
+    // Parse dimensions — split by ### headers within ## Dimensions section
+    const dimensionsSection = content.match(/## Dimensions\s*\n([\s\S]*?)(?=## Critique|$)/);
+    const dimensions: DimensionScore[] = [];
+
+    if (dimensionsSection) {
+      const dimBlocks = dimensionsSection[1].split(/^### /m).filter(Boolean);
+      for (const block of dimBlocks) {
+        const nameMatch = block.match(/^(.+?)$/m);
+        if (!nameMatch) continue;
+        const name = nameMatch[1].trim();
+
+        const dimScoreMatch = block.match(/^Score:\s*(\d+)\s*\/\s*10/m);
+        const score = dimScoreMatch ? parseInt(dimScoreMatch[1], 10) : 0;
+
+        const rationaleMatch = block.match(/^Rationale:\s*([\s\S]*?)$/m);
+        const rationale = rationaleMatch ? rationaleMatch[1].trim() : "";
+
+        const threshold = thresholdMap.get(name.toLowerCase()) ?? 5;
+        dimensions.push({
+          id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, ""),
+          name,
+          score,
+          threshold,
+          passed: score >= threshold,
+          rationale,
+        });
+      }
+    }
+
+    // Recompute passed from dimension scores — don't trust agent's "Overall:" line
+    const passed = dimensions.length > 0 && dimensions.every(d => d.passed);
+
+    // Derive backward-compat criteria lists
+    const passedCriteria = dimensions
+      .filter(d => d.passed)
+      .map(d => `${d.name}: ${d.score}/10`);
+    const failedCriteria = dimensions
+      .filter(d => !d.passed)
+      .map(d => `${d.name}: ${d.score}/10 (min: ${d.threshold})`);
+
+    return {
+      passed,
+      critique,
+      failedCriteria,
+      passedCriteria,
+      overallScore,
+      dimensions,
+    };
+  }
+
+  private parseLegacyEvaluation(content: string): EvalResult {
     const lines = content.split("\n");
     let passed = false;
     const failedCriteria: string[] = [];
