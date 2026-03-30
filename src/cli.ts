@@ -12,7 +12,7 @@ const program = new Command();
 program
   .name("agents-harness")
   .description("Multi-agent orchestrator for autonomous software development")
-  .version("0.1.2");
+  .version("0.3.0");
 
 program
   .command("run")
