@@ -75,13 +75,13 @@ Give it a feature description and it handles the rest.
 | `-s, --scope <workspaces...>` | Limit to specific workspaces (monorepo) | All |
 | `--max-attempts <n>` | Max retry attempts per sprint | 3 |
 | `--max-budget <n>` | Max total spend in USD | 50 |
-| `--dashboard` | Open a live web dashboard | Off |
+| `--no-dashboard` | Disable the live web dashboard | On |
 | `--port <n>` | Dashboard port | 3117 |
 
 **Examples:**
 
 ```bash
-# Simple feature
+# Simple feature (dashboard opens at http://localhost:3117)
 agents-harness run "Add a /health endpoint that returns 200 OK"
 
 # With budget limit
@@ -90,8 +90,8 @@ agents-harness run "Refactor the auth module to use OAuth2" --max-budget 20
 # Monorepo — only touch the backend
 agents-harness run "Add pagination to the users API" --scope packages/api
 
-# With live dashboard
-agents-harness run "Build a notification system" --dashboard
+# Disable the dashboard for CI or headless environments
+agents-harness run "Build a notification system" --no-dashboard
 ```
 
 ### `init` — Initialize project config (optional)
@@ -158,7 +158,7 @@ Picks up where a stopped or failed run left off. Skips completed sprints.
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--max-budget <n>` | Max total spend in USD | 50 |
-| `--dashboard` | Open a live web dashboard | Off |
+| `--no-dashboard` | Disable the live web dashboard | On |
 | `--port <n>` | Dashboard port | 3117 |
 
 **Example:**
@@ -169,6 +169,9 @@ agents-harness resume
 
 # Resume with a higher budget
 agents-harness resume --max-budget 100
+
+# Resume without dashboard
+agents-harness resume --no-dashboard
 ```
 
 ### `config` — Manage global settings
@@ -237,17 +240,28 @@ These are checked **in addition to** the built-in defaults (correctness, testing
 
 ## Live Dashboard
 
-Enable with `--dashboard` to get a real-time web UI:
+The dashboard starts automatically at `http://localhost:3117` on every run. It provides a split-panel UI for monitoring the entire harness lifecycle.
 
 ```bash
-agents-harness run "Build a feature" --dashboard
+# Dashboard is on by default
+agents-harness run "Build a feature"
 # Dashboard: http://localhost:3117
+
+# Disable for CI or headless environments
+agents-harness run "Build a feature" --no-dashboard
 ```
 
-The dashboard shows:
-- Sprint progress with pass/fail status
-- Live activity stream (every file read, edit, bash command)
-- Evaluation results with passed/failed criteria
+**Left panel:**
+- Phase pipeline (Plan → Decompose → Contract → Generate → Evaluate → Handoff) with active/done states
+- Sprint cards with status, attempt count, cost, and evaluation criteria
+
+**Right panel:**
+- File viewer with tabs (Spec, Sprints, Contract, Evaluation, Handoff)
+- Live file updates via WebSocket as agents write to `.harness/` files
+- Auto-switches to the relevant tab when the phase changes
+
+**Bottom:**
+- Collapsible activity stream (every file read, edit, bash command)
 - Cost tracking with budget progress bar
 - Auto-reconnects if the connection drops
 
