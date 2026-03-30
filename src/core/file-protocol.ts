@@ -6,7 +6,7 @@ import type { Progress, EvalResult } from "./types.js";
 const EPHEMERAL_FILES = ["contract.md", "evaluation.md", "handoff.md", "sprints.md"];
 
 const GITIGNORE_ENTRIES = [
-  "# agent-harness (ephemeral files)",
+  "# agents-harness (ephemeral files)",
   ".harness/spec.md",
   ".harness/sprints.md",
   ".harness/contract.md",
@@ -118,7 +118,7 @@ export class FileProtocol {
 
     if (existsSync(gitignorePath)) {
       const existing = readFileSync(gitignorePath, "utf-8");
-      if (existing.includes("agent-harness")) {
+      if (existing.includes("agents-harness")) {
         return;
       }
       appendFileSync(gitignorePath, "\n" + GITIGNORE_ENTRIES.join("\n") + "\n", "utf-8");

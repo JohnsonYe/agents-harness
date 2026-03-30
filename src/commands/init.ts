@@ -71,5 +71,5 @@ Add project-specific criteria here. These are checked IN ADDITION to the default
   }
 
   console.log("\nDone! Edit .harness/config.yaml to customize settings.");
-  console.log("Run 'agent-harness run \"<spec>\"' to start.");
+  console.log("Run 'agents-harness run \"<spec>\"' to start.");
 }

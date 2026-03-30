@@ -46,7 +46,7 @@ describe("saveGlobalConfig", () => {
   it("creates the config file with correct content", () => {
     saveGlobalConfig({ api_key: "sk-saved" });
 
-    const configPath = join(tempHome, ".agent-harness", "config.yaml");
+    const configPath = join(tempHome, ".agents-harness", "config.yaml");
     expect(existsSync(configPath)).toBe(true);
 
     const content = readFileSync(configPath, "utf-8");
@@ -64,7 +64,7 @@ describe("resolveApiKey", () => {
   });
 
   it("returns global config value when no env var is set", () => {
-    const configDir = join(tempHome, ".agent-harness");
+    const configDir = join(tempHome, ".agents-harness");
     mkdirSync(configDir, { recursive: true });
     writeFileSync(
       join(configDir, "config.yaml"),
@@ -78,7 +78,7 @@ describe("resolveApiKey", () => {
 
   it("prefers env var over global config", () => {
     process.env.ANTHROPIC_API_KEY = "sk-env-key";
-    const configDir = join(tempHome, ".agent-harness");
+    const configDir = join(tempHome, ".agents-harness");
     mkdirSync(configDir, { recursive: true });
     writeFileSync(
       join(configDir, "config.yaml"),
@@ -101,7 +101,7 @@ describe("configCommand", () => {
   it("set saves a value to the config file", () => {
     configCommand("set", "api-key", "sk-test-123");
 
-    const configPath = join(tempHome, ".agent-harness", "config.yaml");
+    const configPath = join(tempHome, ".agents-harness", "config.yaml");
     expect(existsSync(configPath)).toBe(true);
 
     const content = readFileSync(configPath, "utf-8");
@@ -135,7 +135,7 @@ describe("configCommand", () => {
     configCommand("set");
 
     expect(errorSpy).toHaveBeenCalledWith(
-      "Usage: agent-harness config set <key> <value>",
+      "Usage: agents-harness config set <key> <value>",
     );
     errorSpy.mockRestore();
   });
@@ -146,7 +146,7 @@ describe("configCommand", () => {
     configCommand("get");
 
     expect(errorSpy).toHaveBeenCalledWith(
-      "Usage: agent-harness config get <key>",
+      "Usage: agents-harness config get <key>",
     );
     errorSpy.mockRestore();
   });

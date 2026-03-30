@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { parse as parseYaml, stringify as toYaml } from "yaml";
 
 function getGlobalConfigDir(): string {
-  return join(homedir(), ".agent-harness");
+  return join(homedir(), ".agents-harness");
 }
 
 function getGlobalConfigPath(): string {
@@ -17,7 +17,7 @@ export interface GlobalConfig {
 }
 
 /**
- * Load global config from ~/.agent-harness/config.yaml
+ * Load global config from ~/.agents-harness/config.yaml
  */
 export function loadGlobalConfig(): GlobalConfig {
   if (!existsSync(getGlobalConfigPath())) {
@@ -32,7 +32,7 @@ export function loadGlobalConfig(): GlobalConfig {
 }
 
 /**
- * Save global config to ~/.agent-harness/config.yaml
+ * Save global config to ~/.agents-harness/config.yaml
  */
 export function saveGlobalConfig(config: GlobalConfig): void {
   mkdirSync(getGlobalConfigDir(), { recursive: true });
@@ -42,7 +42,7 @@ export function saveGlobalConfig(config: GlobalConfig): void {
 /**
  * Resolve the API key from (in priority order):
  * 1. ANTHROPIC_API_KEY environment variable
- * 2. Global config file (~/.agent-harness/config.yaml)
+ * 2. Global config file (~/.agents-harness/config.yaml)
  */
 export function resolveApiKey(): string | undefined {
   // Check env var first
@@ -60,8 +60,8 @@ export function resolveApiKey(): string | undefined {
  * CLI config command handler.
  *
  * Usage:
- *   agent-harness config set api-key <value>
- *   agent-harness config get api-key
+ *   agents-harness config set api-key <value>
+ *   agents-harness config get api-key
  */
 export function configCommand(
   action: string,
@@ -75,7 +75,7 @@ export function configCommand(
 
   if (action === "set") {
     if (!key || !value) {
-      console.error("Usage: agent-harness config set <key> <value>");
+      console.error("Usage: agents-harness config set <key> <value>");
       return;
     }
     const configKey = keyMap[key] ?? key;
@@ -85,7 +85,7 @@ export function configCommand(
     console.log(`Set ${key} in global config.`);
   } else if (action === "get") {
     if (!key) {
-      console.error("Usage: agent-harness config get <key>");
+      console.error("Usage: agents-harness config get <key>");
       return;
     }
     const configKey = keyMap[key] ?? key;

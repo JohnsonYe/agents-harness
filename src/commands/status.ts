@@ -16,7 +16,7 @@ export function statusCommand(): void {
   const progress = fp.readProgress();
 
   if (!progress) {
-    console.log("No active run found. Run 'agent-harness run \"<spec>\"' to start.");
+    console.log("No active run found. Run 'agents-harness run \"<spec>\"' to start.");
     return;
   }
 

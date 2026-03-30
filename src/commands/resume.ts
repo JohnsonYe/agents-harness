@@ -30,13 +30,13 @@ export async function resumeCommand(options: ResumeOptions): Promise<void> {
   const apiKey = resolveApiKey();
   if (!apiKey) {
     console.error("Error: No API key found.");
-    console.error("Set ANTHROPIC_API_KEY environment variable or run: agent-harness config set api-key <key>");
+    console.error("Set ANTHROPIC_API_KEY environment variable or run: agents-harness config set api-key <key>");
     process.exit(1);
   }
 
   const root = process.cwd();
 
-  console.log("Resuming agent-harness run...");
+  console.log("Resuming agents-harness run...");
   console.log("");
 
   const harness = new Harness({

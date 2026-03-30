@@ -1,4 +1,4 @@
-# agent-harness
+# agents-harness
 
 A multi-agent orchestrator for autonomous software development. Three AI agents — **Planner**, **Generator**, and **Evaluator** — work together in a loop to turn your feature spec into working code.
 
@@ -36,7 +36,7 @@ Each agent gets a **fresh context** on every invocation — no accumulated confu
 ### 1. Install
 
 ```bash
-npm install -g agent-harness
+npm install -g agents-harness
 ```
 
 ### 2. Set your API key
@@ -46,14 +46,14 @@ npm install -g agent-harness
 export ANTHROPIC_API_KEY=sk-ant-...
 
 # Option B: Global config
-agent-harness config set api-key sk-ant-...
+agents-harness config set api-key sk-ant-...
 ```
 
 ### 3. Run
 
 ```bash
 cd your-project
-agent-harness run "Add user authentication with email/password login and JWT tokens"
+agents-harness run "Add user authentication with email/password login and JWT tokens"
 ```
 
 That's it. The harness will plan, implement, and test the feature across multiple sprints.
@@ -63,7 +63,7 @@ That's it. The harness will plan, implement, and test the feature across multipl
 ### `run` — Start a new run
 
 ```bash
-agent-harness run "<spec>"
+agents-harness run "<spec>"
 ```
 
 Give it a feature description and it handles the rest.
@@ -82,22 +82,22 @@ Give it a feature description and it handles the rest.
 
 ```bash
 # Simple feature
-agent-harness run "Add a /health endpoint that returns 200 OK"
+agents-harness run "Add a /health endpoint that returns 200 OK"
 
 # With budget limit
-agent-harness run "Refactor the auth module to use OAuth2" --max-budget 20
+agents-harness run "Refactor the auth module to use OAuth2" --max-budget 20
 
 # Monorepo — only touch the backend
-agent-harness run "Add pagination to the users API" --scope packages/api
+agents-harness run "Add pagination to the users API" --scope packages/api
 
 # With live dashboard
-agent-harness run "Build a notification system" --dashboard
+agents-harness run "Build a notification system" --dashboard
 ```
 
 ### `init` — Initialize project config (optional)
 
 ```bash
-agent-harness init
+agents-harness init
 ```
 
 Creates a `.harness/` directory with:
@@ -125,7 +125,7 @@ Created .harness/criteria.md
 ### `status` — Check run progress
 
 ```bash
-agent-harness status
+agents-harness status
 ```
 
 Shows the current state of a run — which sprint you're on, pass/fail status, and cost.
@@ -148,7 +148,7 @@ Sprints: 2 / 3
 ### `resume` — Resume a stopped run
 
 ```bash
-agent-harness resume
+agents-harness resume
 ```
 
 Picks up where a stopped or failed run left off. Skips completed sprints.
@@ -165,30 +165,30 @@ Picks up where a stopped or failed run left off. Skips completed sprints.
 
 ```bash
 # Hit Ctrl+C during a run, then later:
-agent-harness resume
+agents-harness resume
 
 # Resume with a higher budget
-agent-harness resume --max-budget 100
+agents-harness resume --max-budget 100
 ```
 
 ### `config` — Manage global settings
 
 ```bash
-agent-harness config set <key> <value>
-agent-harness config get <key>
+agents-harness config set <key> <value>
+agents-harness config get <key>
 ```
 
 **Examples:**
 
 ```bash
 # Save your API key globally
-agent-harness config set api-key sk-ant-api03-...
+agents-harness config set api-key sk-ant-api03-...
 
 # Check what's set
-agent-harness config get api-key
+agents-harness config get api-key
 ```
 
-Config is stored at `~/.agent-harness/config.yaml`.
+Config is stored at `~/.agents-harness/config.yaml`.
 
 ## Configuration
 
@@ -203,7 +203,7 @@ The harness auto-detects your project:
 
 ### Custom config (optional)
 
-Run `agent-harness init`, then edit `.harness/config.yaml`:
+Run `agents-harness init`, then edit `.harness/config.yaml`:
 
 ```yaml
 agents:
@@ -240,7 +240,7 @@ These are checked **in addition to** the built-in defaults (correctness, testing
 Enable with `--dashboard` to get a real-time web UI:
 
 ```bash
-agent-harness run "Build a feature" --dashboard
+agents-harness run "Build a feature" --dashboard
 # Dashboard: http://localhost:3117
 ```
 
@@ -253,10 +253,10 @@ The dashboard shows:
 
 ## Programmatic API
 
-Use agent-harness as a library in your own tools:
+Use agents-harness as a library in your own tools:
 
 ```typescript
-import { Harness } from "agent-harness";
+import { Harness } from "agents-harness";
 
 const harness = new Harness({
   apiKey: process.env.ANTHROPIC_API_KEY!,

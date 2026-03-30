@@ -10,7 +10,7 @@ import { configCommand } from "./commands/config.js";
 const program = new Command();
 
 program
-  .name("agent-harness")
+  .name("agents-harness")
   .description("Multi-agent orchestrator for autonomous software development")
   .version("0.1.0");
 

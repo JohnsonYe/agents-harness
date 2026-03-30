@@ -191,7 +191,7 @@ All acceptance criteria have been met. The implementation is solid.`;
     fp.ensureGitignore();
 
     const gitignore = readFileSync(join(root, ".gitignore"), "utf-8");
-    expect(gitignore).toContain("# agent-harness (ephemeral files)");
+    expect(gitignore).toContain("# agents-harness (ephemeral files)");
     expect(gitignore).toContain(".harness/spec.md");
     expect(gitignore).toContain(".harness/sprints.md");
     expect(gitignore).toContain(".harness/contract.md");
@@ -214,7 +214,7 @@ All acceptance criteria have been met. The implementation is solid.`;
     const gitignore = readFileSync(join(root, ".gitignore"), "utf-8");
 
     // Count occurrences of the header comment
-    const matches = gitignore.match(/# agent-harness/g);
+    const matches = gitignore.match(/# agents-harness/g);
     expect(matches).toHaveLength(1);
 
     // Ensure existing content is preserved
