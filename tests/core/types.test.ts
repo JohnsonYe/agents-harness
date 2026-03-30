@@ -79,10 +79,12 @@ describe("Core Types", () => {
     const event: StateSnapshotEvent = {
       files: { "spec.md": "# Spec content", "contract.md": null },
       progress: null,
+      events: [],
     };
     expect(event.files["spec.md"]).toBe("# Spec content");
     expect(event.files["contract.md"]).toBeNull();
     expect(event.progress).toBeNull();
+    expect(event.events).toEqual([]);
   });
 
   it("HarnessEvent union includes file:update and state:snapshot", () => {
@@ -94,7 +96,7 @@ describe("Core Types", () => {
 
     const snapshotEvent: HarnessEvent = {
       type: "state:snapshot",
-      data: { files: {}, progress: null },
+      data: { files: {}, progress: null, events: [] },
     };
     expect(snapshotEvent.type).toBe("state:snapshot");
   });

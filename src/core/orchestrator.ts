@@ -132,6 +132,7 @@ export class Harness extends EventEmitter {
   async run(spec: string): Promise<void> {
     this.fileProtocol.ensureDir();
     this.fileProtocol.ensureGitignore();
+    this.fileProtocol.cleanEphemeral();
     this.progress = this.initProgress(spec);
     this.aborted = false;
 

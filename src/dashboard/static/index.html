@@ -522,7 +522,13 @@
           }
         }
       }
-      // Restore progress
+      // Replay persisted events to rebuild full state (sprints, activities, cost, etc.)
+      if (data.events && data.events.length > 0) {
+        for (var i = 0; i < data.events.length; i++) {
+          handleEvent(data.events[i]);
+        }
+      }
+      // Restore progress (override with latest from progress file)
       if (data.progress) {
         var p = data.progress;
         state.currentPhase = p.currentPhase;
@@ -533,11 +539,12 @@
         state.budget = p.maxBudgetUsd || 0;
         if (p.sprints) {
           for (var sn in p.sprints) {
+            var existing = state.sprints[sn];
             state.sprints[sn] = {
               status: p.sprints[sn].status,
               attempts: p.sprints[sn].attempts,
               cost: p.sprints[sn].costUsd || 0,
-              eval: null,
+              eval: existing ? existing.eval : null,
             };
           }
         }
@@ -551,6 +558,7 @@
       renderSprints();
       renderFileTabs();
       renderFileContent();
+      renderActivity();
       if (state.totalCost > 0) {
         document.getElementById('total-cost').textContent = '$' + state.totalCost.toFixed(2);
       }

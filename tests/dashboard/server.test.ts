@@ -140,6 +140,66 @@ describe("DashboardServer with projectRoot", () => {
     expect(event.data.files["spec.md"]).toBe("# Test Spec");
     expect(event.data.files["contract.md"]).toBe("# Contract");
     expect(event.data.files["evaluation.md"]).toBeNull();
+    expect(event.data.events).toEqual([]);
+
+    ws.close();
+  });
+
+  it("persists broadcast events and includes them in snapshot", async () => {
+    server = new DashboardServer(0, tmpRoot);
+    await server.start();
+
+    const event: HarnessEvent = {
+      type: "phase:start",
+      data: { sprint: 1, phase: "plan", attempt: 0 },
+    };
+    server.broadcast(event);
+
+    const port = server.getPort();
+    const ws = new WebSocket(`ws://localhost:${port}`);
+
+    const message = await new Promise<string>((resolve, reject) => {
+      ws.onmessage = (e) => resolve(e.data as string);
+      ws.onerror = () => reject(new Error("WebSocket error"));
+      setTimeout(() => reject(new Error("Timeout")), 3000);
+    });
+
+    const snapshot = JSON.parse(message);
+    expect(snapshot.type).toBe("state:snapshot");
+    expect(snapshot.data.events).toHaveLength(1);
+    expect(snapshot.data.events[0].type).toBe("phase:start");
+    expect(snapshot.data.events[0].data.sprint).toBe(1);
+
+    ws.close();
+  });
+
+  it("loads persisted events on new server instance", async () => {
+    // First server: broadcast an event to persist it
+    const server1 = new DashboardServer(0, tmpRoot);
+    await server1.start();
+    server1.broadcast({
+      type: "agent:activity",
+      data: { sprint: 1, role: "planner", tool: "Read", summary: "Read spec.md", timestamp: Date.now() },
+    } as HarnessEvent);
+    await server1.stop();
+
+    // Second server: should load persisted events
+    server = new DashboardServer(0, tmpRoot);
+    await server.start();
+
+    const port = server.getPort();
+    const ws = new WebSocket(`ws://localhost:${port}`);
+
+    const message = await new Promise<string>((resolve, reject) => {
+      ws.onmessage = (e) => resolve(e.data as string);
+      ws.onerror = () => reject(new Error("WebSocket error"));
+      setTimeout(() => reject(new Error("Timeout")), 3000);
+    });
+
+    const snapshot = JSON.parse(message);
+    expect(snapshot.data.events).toHaveLength(1);
+    expect(snapshot.data.events[0].type).toBe("agent:activity");
+    expect(snapshot.data.events[0].data.summary).toBe("Read spec.md");
 
     ws.close();
   });

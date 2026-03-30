@@ -1,10 +1,12 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFileSync, existsSync, watch, type FSWatcher } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, watch, type FSWatcher } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { WebSocketBroadcaster } from "./socket.js";
 import type { HarnessEvent } from "../core/types.js";
+
+const EVENTS_FILE = "events.json";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -21,10 +23,12 @@ export class DashboardServer {
   private projectRoot: string | null;
   private fileWatcher: FSWatcher | null = null;
   private debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private eventLog: HarnessEvent[] = [];
 
   constructor(port = 3117, projectRoot?: string) {
     this.port = port;
     this.projectRoot = projectRoot ?? null;
+    this.loadEventLog();
     this.server = createServer(this.handleRequest.bind(this));
     this.broadcaster = new WebSocketBroadcaster(
       this.server,
@@ -67,6 +71,27 @@ export class DashboardServer {
     }
   }
 
+  private getEventsFilePath(): string | null {
+    if (!this.projectRoot) return null;
+    return join(this.projectRoot, ".harness", EVENTS_FILE);
+  }
+
+  private loadEventLog(): void {
+    const filePath = this.getEventsFilePath();
+    if (!filePath || !existsSync(filePath)) return;
+    try {
+      this.eventLog = JSON.parse(readFileSync(filePath, "utf-8"));
+    } catch { /* ignore corrupt file */ }
+  }
+
+  private persistEventLog(): void {
+    const filePath = this.getEventsFilePath();
+    if (!filePath) return;
+    try {
+      writeFileSync(filePath, JSON.stringify(this.eventLog), "utf-8");
+    } catch { /* ignore write errors */ }
+  }
+
   private buildSnapshot(): HarnessEvent | null {
     if (!this.projectRoot) return null;
     const harnessDir = join(this.projectRoot, ".harness");
@@ -84,7 +109,7 @@ export class DashboardServer {
       try { progress = parseYaml(readFileSync(progressPath, "utf-8")); } catch { /* ignore */ }
     }
 
-    return { type: "state:snapshot", data: { files, progress } };
+    return { type: "state:snapshot", data: { files, progress, events: this.eventLog } };
   }
 
   private startFileWatcher(): void {
@@ -153,6 +178,11 @@ export class DashboardServer {
   }
 
   broadcast(event: HarnessEvent): void {
+    // Persist events that carry state (skip file:update and state:snapshot)
+    if (event.type !== "file:update" && event.type !== "state:snapshot") {
+      this.eventLog.push(event);
+      this.persistEventLog();
+    }
     this.broadcaster.broadcast(event);
   }
 }

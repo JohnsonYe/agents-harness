@@ -151,6 +151,7 @@ export interface FileUpdateEvent {
 export interface StateSnapshotEvent {
   files: Record<string, string | null>;
   progress: Progress | null;
+  events: HarnessEvent[];
 }
 
 export type HarnessEvent =

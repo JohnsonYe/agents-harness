@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { stringify as toYaml, parse as parseYaml } from "yaml";
 import type { Progress, EvalResult } from "./types.js";
 
-const EPHEMERAL_FILES = ["contract.md", "evaluation.md", "handoff.md", "sprints.md"];
+const EPHEMERAL_FILES = ["contract.md", "evaluation.md", "handoff.md", "sprints.md", "events.json"];
 
 const GITIGNORE_ENTRIES = [
   "# agents-harness (ephemeral files)",
@@ -14,6 +14,7 @@ const GITIGNORE_ENTRIES = [
   ".harness/handoff.md",
   ".harness/progress.md",
   ".harness/summary.md",
+  ".harness/events.json",
 ];
 
 export class FileProtocol {
