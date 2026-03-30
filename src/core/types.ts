@@ -82,11 +82,34 @@ export interface Progress {
   sprints: Record<number, SprintProgress>;
 }
 
+export type ProjectType = "frontend" | "backend" | "fullstack" | "universal";
+
+export interface EvalDimension {
+  id: string;
+  name: string;
+  description: string;
+  weight: number;
+  threshold: number;
+  rubric: string;
+}
+
+export interface DimensionScore {
+  id: string;
+  name: string;
+  score: number;
+  threshold: number;
+  passed: boolean;
+  rationale: string;
+}
+
 export interface EvalResult {
   passed: boolean;
   critique: string;
   failedCriteria: string[];
   passedCriteria: string[];
+  overallScore?: number;
+  dimensions?: DimensionScore[];
+  projectType?: ProjectType;
 }
 
 // --- Agent Role Types ---

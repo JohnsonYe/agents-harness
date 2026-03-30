@@ -4,10 +4,13 @@ import type {
   Phase,
   HarnessEvent,
   AgentRole,
+  ProjectContext,
 } from "./types.js";
 import { ContextManager, type ModelOverrides } from "./context-manager.js";
 import { FileProtocol } from "./file-protocol.js";
 import { buildProjectContext } from "../discovery/project-context.js";
+import { detectProjectType } from "../defaults/project-type.js";
+import { getDimensions } from "../defaults/criteria.js";
 
 export interface HarnessOptions {
   apiKey: string;
@@ -22,6 +25,7 @@ export interface HarnessOptions {
 export class Harness extends EventEmitter {
   private contextManager: ContextManager;
   private fileProtocol: FileProtocol;
+  private projectContext: ProjectContext;
   private progress: Progress;
   private aborted = false;
   private options: Required<
@@ -34,6 +38,7 @@ export class Harness extends EventEmitter {
   constructor(opts: HarnessOptions) {
     super();
     const projectContext = buildProjectContext(opts.root, opts.scope ?? null);
+    this.projectContext = projectContext;
 
     // Apply config overrides from .harness/config.yaml
     const config = projectContext.config;
@@ -220,8 +225,11 @@ export class Harness extends EventEmitter {
         sprintNum,
       );
 
-      // Parse evaluation
-      const evalResult = this.fileProtocol.parseEvaluation();
+      // Parse evaluation with scored dimensions
+      const projectType = detectProjectType(this.projectContext);
+      const dims = getDimensions(projectType);
+      const evalResult = this.fileProtocol.parseEvaluation(dims);
+      evalResult.projectType = projectType;
       this.emitEvent({
         type: "evaluation",
         data: { sprint: sprintNum, attempt, result: evalResult },

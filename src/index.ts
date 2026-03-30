@@ -12,7 +12,8 @@ export { loadConfig, loadCriteria } from "./discovery/config-loader.js";
 
 // Defaults
 export { buildSystemPrompt, formatProjectContext } from "./defaults/prompts.js";
-export { DEFAULT_CRITERIA } from "./defaults/criteria.js";
+export { DEFAULT_CRITERIA, getDimensions, formatDimensionsBlock } from "./defaults/criteria.js";
+export { detectProjectType } from "./defaults/project-type.js";
 
 // Dashboard
 export { DashboardServer } from "./dashboard/server.js";
@@ -31,6 +32,9 @@ export type {
   SprintProgress,
   Progress,
   EvalResult,
+  ProjectType,
+  EvalDimension,
+  DimensionScore,
   AgentRole,
   AgentDefinition,
   PhaseStartEvent,
