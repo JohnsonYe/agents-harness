@@ -1,17 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ProjectContext, HarnessConfig } from "../../src/core/types.js";
 
+// Helper to create an async generator from an array of messages
+async function* mockAsyncGenerator(messages: unknown[]) {
+  for (const msg of messages) {
+    yield msg;
+  }
+}
+
 // Mock the Claude Agent SDK at module level
 const mockQuery = vi.fn();
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
-  query: mockQuery,
+  query: (...args: unknown[]) => mockQuery(...args),
 }));
 
 // Mock buildSystemPrompt so we can verify it's called without pulling in the real implementation
 vi.mock("../../src/defaults/prompts.js", () => ({
   buildSystemPrompt: vi.fn(
     (role: string, _ctx: ProjectContext, append?: string) =>
-      `system-prompt-for-${role}${append ? `-${append}` : ""}`
+      `system-prompt-for-${role}${append ? `-${append}` : ""}`,
   ),
 }));
 
@@ -61,7 +68,9 @@ describe("ContextManager", () => {
   describe("getModelForRole", () => {
     it("returns correct default for planner", () => {
       const manager = new ContextManager("key", makeContext());
-      expect(manager.getModelForRole("planner")).toBe("claude-sonnet-4-5-20250929");
+      expect(manager.getModelForRole("planner")).toBe(
+        "claude-sonnet-4-5-20250929",
+      );
     });
 
     it("returns correct default for generator", () => {
@@ -71,7 +80,9 @@ describe("ContextManager", () => {
 
     it("returns correct default for evaluator", () => {
       const manager = new ContextManager("key", makeContext());
-      expect(manager.getModelForRole("evaluator")).toBe("claude-sonnet-4-5-20250929");
+      expect(manager.getModelForRole("evaluator")).toBe(
+        "claude-sonnet-4-5-20250929",
+      );
     });
   });
 
@@ -95,7 +106,12 @@ describe("ContextManager", () => {
 
     it("returns correct tools for evaluator", () => {
       const manager = new ContextManager("key", makeContext());
-      expect(manager.getToolsForRole("evaluator")).toEqual(["Read", "Bash", "Grep", "Glob"]);
+      expect(manager.getToolsForRole("evaluator")).toEqual([
+        "Read",
+        "Bash",
+        "Grep",
+        "Glob",
+      ]);
     });
   });
 
@@ -144,7 +160,9 @@ describe("ContextManager", () => {
         },
       };
       const manager = new ContextManager("key", makeContext({ config }));
-      expect(manager.getModelForRole("planner")).toBe("claude-custom-model-2025");
+      expect(manager.getModelForRole("planner")).toBe(
+        "claude-custom-model-2025",
+      );
     });
   });
 
@@ -153,42 +171,42 @@ describe("ContextManager", () => {
       const ctx = makeContext();
       const manager = new ContextManager("test-api-key", ctx);
 
-      mockQuery.mockResolvedValue({
-        messages: [
+      mockQuery.mockReturnValue(
+        mockAsyncGenerator([
           {
-            role: "assistant",
-            content: [{ type: "text", text: "Generated plan" }],
+            type: "result",
+            subtype: "success",
+            result: "Generated plan",
+            total_cost_usd: 0.05,
           },
-        ],
-        usage: { cost_usd: 0.05 },
-      });
+        ]),
+      );
 
       await manager.runAgent({ role: "planner", prompt: "Create a plan" });
 
       expect(mockQuery).toHaveBeenCalledOnce();
-      expect(mockQuery).toHaveBeenCalledWith({
-        model: "claude-sonnet-4-5-20250929",
-        systemPrompt: "system-prompt-for-planner",
-        prompt: "Create a plan",
-        tools: ["Read", "Write"],
-        maxTurns: 30,
-        apiKey: "test-api-key",
-        cwd: "/tmp/test-project",
-      });
+      const callArgs = mockQuery.mock.calls[0][0];
+      expect(callArgs.prompt).toBe("Create a plan");
+      expect(callArgs.options.model).toBe("claude-sonnet-4-5-20250929");
+      expect(callArgs.options.systemPrompt).toBe("system-prompt-for-planner");
+      expect(callArgs.options.tools).toEqual(["Read", "Write"]);
+      expect(callArgs.options.maxTurns).toBe(30);
+      expect(callArgs.options.cwd).toBe("/tmp/test-project");
     });
 
-    it("returns response and cost from query result", async () => {
+    it("returns response and cost from result message", async () => {
       const manager = new ContextManager("key", makeContext());
 
-      mockQuery.mockResolvedValue({
-        messages: [
+      mockQuery.mockReturnValue(
+        mockAsyncGenerator([
           {
-            role: "assistant",
-            content: [{ type: "text", text: "Here is the implementation" }],
+            type: "result",
+            subtype: "success",
+            result: "Here is the implementation",
+            total_cost_usd: 0.12,
           },
-        ],
-        usage: { cost_usd: 0.12 },
-      });
+        ]),
+      );
 
       const result = await manager.runAgent({
         role: "generator",
@@ -199,13 +217,10 @@ describe("ContextManager", () => {
       expect(result.costUsd).toBe(0.12);
     });
 
-    it("returns empty response when no messages", async () => {
+    it("returns empty response when no result message", async () => {
       const manager = new ContextManager("key", makeContext());
 
-      mockQuery.mockResolvedValue({
-        messages: undefined,
-        usage: undefined,
-      });
+      mockQuery.mockReturnValue(mockAsyncGenerator([]));
 
       const result = await manager.runAgent({
         role: "planner",
@@ -216,51 +231,37 @@ describe("ContextManager", () => {
       expect(result.costUsd).toBe(0);
     });
 
-    it("extracts text from string content", async () => {
+    it("collects activity events from assistant tool_use blocks", async () => {
       const manager = new ContextManager("key", makeContext());
 
-      mockQuery.mockResolvedValue({
-        messages: [
-          { role: "assistant", content: "Plain string response" },
-        ],
-        usage: { cost_usd: 0.01 },
-      });
-
-      const result = await manager.runAgent({
-        role: "planner",
-        prompt: "Plan",
-      });
-
-      expect(result.response).toBe("Plain string response");
-    });
-
-    it("collects activity events from tool_use blocks", async () => {
-      const manager = new ContextManager("key", makeContext());
-
-      mockQuery.mockResolvedValue({
-        messages: [
+      mockQuery.mockReturnValue(
+        mockAsyncGenerator([
           {
-            role: "assistant",
-            content: [
-              {
-                type: "tool_use",
-                name: "Read",
-                input: { file_path: "/src/index.ts" },
-              },
-              {
-                type: "tool_use",
-                name: "Edit",
-                input: { file_path: "/src/utils.ts" },
-              },
-              {
-                type: "text",
-                text: "Done editing",
-              },
-            ],
+            type: "assistant",
+            message: {
+              content: [
+                {
+                  type: "tool_use",
+                  name: "Read",
+                  input: { file_path: "/src/index.ts" },
+                },
+                {
+                  type: "tool_use",
+                  name: "Edit",
+                  input: { file_path: "/src/utils.ts" },
+                },
+                { type: "text", text: "Done editing" },
+              ],
+            },
           },
-        ],
-        usage: { cost_usd: 0.08 },
-      });
+          {
+            type: "result",
+            subtype: "success",
+            result: "Done",
+            total_cost_usd: 0.08,
+          },
+        ]),
+      );
 
       const activities: Array<{ tool: string; summary: string }> = [];
       const onActivity = (tool: string, summary: string) => {
@@ -286,24 +287,27 @@ describe("ContextManager", () => {
 
     it("summarizes Bash tool use with truncated command", async () => {
       const manager = new ContextManager("key", makeContext());
+      const longCommand =
+        "npm run test -- --coverage --reporter=verbose " + "x".repeat(100);
 
-      const longCommand = "npm run test -- --coverage --reporter=verbose " + "x".repeat(100);
-
-      mockQuery.mockResolvedValue({
-        messages: [
+      mockQuery.mockReturnValue(
+        mockAsyncGenerator([
           {
-            role: "assistant",
-            content: [
-              {
-                type: "tool_use",
-                name: "Bash",
-                input: { command: longCommand },
-              },
-            ],
+            type: "assistant",
+            message: {
+              content: [
+                { type: "tool_use", name: "Bash", input: { command: longCommand } },
+              ],
+            },
           },
-        ],
-        usage: { cost_usd: 0.03 },
-      });
+          {
+            type: "result",
+            subtype: "success",
+            result: "",
+            total_cost_usd: 0.03,
+          },
+        ]),
+      );
 
       const activities: Array<{ tool: string; summary: string }> = [];
       await manager.runAgent({
@@ -314,33 +318,31 @@ describe("ContextManager", () => {
 
       expect(activities).toHaveLength(1);
       expect(activities[0].tool).toBe("Bash");
-      // Bash summary truncates to 80 characters
       expect(activities[0].summary).toBe(`Bash: ${longCommand.slice(0, 80)}`);
     });
 
     it("summarizes Glob and Grep tool use", async () => {
       const manager = new ContextManager("key", makeContext());
 
-      mockQuery.mockResolvedValue({
-        messages: [
+      mockQuery.mockReturnValue(
+        mockAsyncGenerator([
           {
-            role: "assistant",
-            content: [
-              {
-                type: "tool_use",
-                name: "Glob",
-                input: { pattern: "**/*.ts" },
-              },
-              {
-                type: "tool_use",
-                name: "Grep",
-                input: { pattern: "TODO" },
-              },
-            ],
+            type: "assistant",
+            message: {
+              content: [
+                { type: "tool_use", name: "Glob", input: { pattern: "**/*.ts" } },
+                { type: "tool_use", name: "Grep", input: { pattern: "TODO" } },
+              ],
+            },
           },
-        ],
-        usage: { cost_usd: 0.02 },
-      });
+          {
+            type: "result",
+            subtype: "success",
+            result: "",
+            total_cost_usd: 0.02,
+          },
+        ]),
+      );
 
       const activities: Array<{ tool: string; summary: string }> = [];
       await manager.runAgent({
@@ -358,21 +360,24 @@ describe("ContextManager", () => {
     it("summarizes unknown tool use with just the name", async () => {
       const manager = new ContextManager("key", makeContext());
 
-      mockQuery.mockResolvedValue({
-        messages: [
+      mockQuery.mockReturnValue(
+        mockAsyncGenerator([
           {
-            role: "assistant",
-            content: [
-              {
-                type: "tool_use",
-                name: "CustomTool",
-                input: { foo: "bar" },
-              },
-            ],
+            type: "assistant",
+            message: {
+              content: [
+                { type: "tool_use", name: "CustomTool", input: { foo: "bar" } },
+              ],
+            },
           },
-        ],
-        usage: { cost_usd: 0.01 },
-      });
+          {
+            type: "result",
+            subtype: "success",
+            result: "",
+            total_cost_usd: 0.01,
+          },
+        ]),
+      );
 
       const activities: Array<{ tool: string; summary: string }> = [];
       await manager.runAgent({
@@ -395,33 +400,53 @@ describe("ContextManager", () => {
       const ctx = makeContext({ config });
       const manager = new ContextManager("key", ctx);
 
-      mockQuery.mockResolvedValue({
-        messages: [{ role: "assistant", content: "ok" }],
-        usage: { cost_usd: 0.01 },
-      });
+      mockQuery.mockReturnValue(
+        mockAsyncGenerator([
+          {
+            type: "result",
+            subtype: "success",
+            result: "ok",
+            total_cost_usd: 0.01,
+          },
+        ]),
+      );
 
       await manager.runAgent({ role: "generator", prompt: "Implement" });
 
-      expect(buildSystemPrompt).toHaveBeenCalledWith("generator", ctx, "Use tabs.");
+      expect(buildSystemPrompt).toHaveBeenCalledWith(
+        "generator",
+        ctx,
+        "Use tabs.",
+      );
     });
 
-    it("does not call onActivity when callback is not provided", async () => {
+    it("does not throw when onActivity is not provided", async () => {
       const manager = new ContextManager("key", makeContext());
 
-      mockQuery.mockResolvedValue({
-        messages: [
+      mockQuery.mockReturnValue(
+        mockAsyncGenerator([
           {
-            role: "assistant",
-            content: [
-              { type: "tool_use", name: "Read", input: { file_path: "/a.ts" } },
-              { type: "text", text: "Done" },
-            ],
+            type: "assistant",
+            message: {
+              content: [
+                {
+                  type: "tool_use",
+                  name: "Read",
+                  input: { file_path: "/a.ts" },
+                },
+                { type: "text", text: "Done" },
+              ],
+            },
           },
-        ],
-        usage: { cost_usd: 0.01 },
-      });
+          {
+            type: "result",
+            subtype: "success",
+            result: "Done",
+            total_cost_usd: 0.01,
+          },
+        ]),
+      );
 
-      // Should not throw when onActivity is not provided
       const result = await manager.runAgent({
         role: "generator",
         prompt: "Do work",
@@ -430,31 +455,26 @@ describe("ContextManager", () => {
       expect(result.response).toBe("Done");
     });
 
-    it("finds last assistant message for response extraction", async () => {
+    it("handles error result messages", async () => {
       const manager = new ContextManager("key", makeContext());
 
-      mockQuery.mockResolvedValue({
-        messages: [
-          { role: "user", content: "Do something" },
+      mockQuery.mockReturnValue(
+        mockAsyncGenerator([
           {
-            role: "assistant",
-            content: [{ type: "text", text: "First response" }],
+            type: "result",
+            subtype: "error_max_turns",
+            total_cost_usd: 0.50,
           },
-          { role: "user", content: "Continue" },
-          {
-            role: "assistant",
-            content: [{ type: "text", text: "Final response" }],
-          },
-        ],
-        usage: { cost_usd: 0.05 },
-      });
+        ]),
+      );
 
       const result = await manager.runAgent({
         role: "generator",
         prompt: "Work",
       });
 
-      expect(result.response).toBe("Final response");
+      expect(result.response).toBe("");
+      expect(result.costUsd).toBe(0.50);
     });
   });
 });

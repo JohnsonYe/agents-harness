@@ -1,4 +1,4 @@
-import type { AgentRole, ProjectContext, HarnessConfig } from "./types.js";
+import type { AgentRole, ProjectContext } from "./types.js";
 import { buildSystemPrompt } from "../defaults/prompts.js";
 
 // Model mapping
@@ -66,74 +66,105 @@ export class ContextManager {
   }
 
   async runAgent(options: RunAgentOptions): Promise<AgentResult> {
-    // Dynamic import to avoid hard dependency
     const { query } = await import("@anthropic-ai/claude-agent-sdk");
 
     const { role, prompt, onActivity } = options;
 
-    const appendPrompt = this.projectContext.config?.agents?.[role]?.systemPromptAppend;
-    const systemPrompt = buildSystemPrompt(role, this.projectContext, appendPrompt);
+    const appendPrompt =
+      this.projectContext.config?.agents?.[role]?.systemPromptAppend;
+    const systemPrompt = buildSystemPrompt(
+      role,
+      this.projectContext,
+      appendPrompt,
+    );
 
     const model = this.getModelForRole(role);
     const tools = this.getToolsForRole(role);
     const maxTurns = this.getMaxTurnsForRole(role);
 
-    const result = await query({
-      model,
-      systemPrompt,
+    // SDK query() returns an AsyncGenerator<SDKMessage>
+    // We iterate through all messages, collecting activity events and the final result
+    const conversation = query({
       prompt,
-      tools,
-      maxTurns,
-      apiKey: this.apiKey,
-      cwd: this.projectContext.root,
+      options: {
+        systemPrompt,
+        model,
+        tools,
+        maxTurns,
+        cwd: this.projectContext.root,
+        allowedTools: tools,
+        permissionMode: "bypassPermissions" as const,
+        allowDangerouslySkipPermissions: true,
+        env: {
+          ...process.env,
+          ANTHROPIC_API_KEY: this.apiKey,
+        },
+      },
     });
 
-    // Process tool use messages for activity events
-    if (onActivity && result.messages) {
-      for (const msg of result.messages) {
-        if (msg.role === "assistant" && Array.isArray(msg.content)) {
-          for (const block of msg.content) {
-            if (block.type === "tool_use") {
-              onActivity(block.name, summarizeToolUse(block));
+    let response = "";
+    let costUsd = 0;
+
+    for await (const message of conversation) {
+      // Handle assistant messages — extract tool_use blocks for activity events
+      if (message.type === "assistant" && onActivity) {
+        const assistantMsg = message as {
+          type: "assistant";
+          message: {
+            content: Array<{
+              type: string;
+              name?: string;
+              input?: Record<string, unknown>;
+              text?: string;
+            }>;
+          };
+        };
+        if (Array.isArray(assistantMsg.message?.content)) {
+          for (const block of assistantMsg.message.content) {
+            if (block.type === "tool_use" && block.name) {
+              onActivity(
+                block.name,
+                summarizeToolUse({
+                  name: block.name,
+                  input: block.input ?? {},
+                }),
+              );
             }
           }
         }
       }
+
+      // Handle result messages — extract final response and cost
+      if (message.type === "result") {
+        const resultMsg = message as {
+          type: "result";
+          subtype: string;
+          result?: string;
+          total_cost_usd: number;
+        };
+        costUsd = resultMsg.total_cost_usd ?? 0;
+        if (resultMsg.subtype === "success" && resultMsg.result) {
+          response = resultMsg.result;
+        }
+      }
     }
 
-    return {
-      response: extractTextResponse(result),
-      costUsd: result.usage?.cost_usd ?? 0,
-    };
+    return { response, costUsd };
   }
 }
 
-function summarizeToolUse(block: { name: string; input: Record<string, unknown> }): string {
+function summarizeToolUse(block: {
+  name: string;
+  input: Record<string, unknown>;
+}): string {
   const name = block.name;
   const input = block.input;
   if (name === "Read" && input.file_path) return `Read ${input.file_path}`;
   if (name === "Write" && input.file_path) return `Write ${input.file_path}`;
   if (name === "Edit" && input.file_path) return `Edit ${input.file_path}`;
-  if (name === "Bash" && input.command) return `Bash: ${String(input.command).slice(0, 80)}`;
+  if (name === "Bash" && input.command)
+    return `Bash: ${String(input.command).slice(0, 80)}`;
   if (name === "Glob" && input.pattern) return `Glob ${input.pattern}`;
   if (name === "Grep" && input.pattern) return `Grep ${input.pattern}`;
   return name;
-}
-
-function extractTextResponse(result: { messages?: Array<{ role: string; content: unknown }> }): string {
-  if (!result.messages) return "";
-  for (let i = result.messages.length - 1; i >= 0; i--) {
-    const msg = result.messages[i];
-    if (msg.role === "assistant") {
-      if (typeof msg.content === "string") return msg.content;
-      if (Array.isArray(msg.content)) {
-        for (const block of msg.content) {
-          if ((block as { type: string }).type === "text") {
-            return (block as { type: string; text: string }).text;
-          }
-        }
-      }
-    }
-  }
-  return "";
 }

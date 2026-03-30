@@ -3,9 +3,17 @@ import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync, readFileSync
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+// Helper to create an async generator from an array of messages
+async function* mockAsyncGenerator(messages: unknown[]) {
+  for (const msg of messages) {
+    yield msg;
+  }
+}
+
 // Mock the Agent SDK
+const mockQuery = vi.fn();
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
-  query: vi.fn(),
+  query: (...args: unknown[]) => mockQuery(...args),
 }));
 
 import { Harness } from "../../src/core/orchestrator.js";
@@ -27,14 +35,13 @@ describe("Harness integration", () => {
     }));
 
     // Mock the SDK query function to simulate agent behavior
-    const { query } = await import("@anthropic-ai/claude-agent-sdk");
-    vi.mocked(query).mockImplementation(async (opts: any) => {
+    // Returns an async generator yielding a result message
+    mockQuery.mockImplementation((opts: any) => {
       callCount++;
       const prompt: string = opts.prompt || "";
 
       // Simulate planner writing sprints.md
       if (prompt.includes("Decompose") || prompt.includes("sprint plan")) {
-        // Write sprints file to the harness dir
         const fp = new FileProtocol(tempDir);
         fp.ensureDir();
         fp.writeFile("sprints.md", "## Sprint 1\nBuild the feature\n");
@@ -47,12 +54,14 @@ describe("Harness integration", () => {
         fp.writeFile("evaluation.md", "Status: PASS\nPassed criteria:\n- All criteria met\nFailed criteria:\nCritique:\n");
       }
 
-      return {
-        messages: [
-          { role: "assistant", content: [{ type: "text", text: "Done" }] },
-        ],
-        usage: { cost_usd: 0.01 },
-      };
+      return mockAsyncGenerator([
+        {
+          type: "result",
+          subtype: "success",
+          result: "Done",
+          total_cost_usd: 0.01,
+        },
+      ]);
     });
   });
 
