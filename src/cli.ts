@@ -21,7 +21,7 @@ program
   .option("-s, --scope <workspaces...>", "Limit to specific workspaces")
   .option("--max-attempts <n>", "Max attempts per sprint", parseInt)
   .option("--max-budget <n>", "Max total budget in USD", parseFloat)
-  .option("--dashboard", "Enable live dashboard")
+  .option("--no-dashboard", "Disable live dashboard")
   .option("--port <n>", "Dashboard port", parseInt)
   .action((spec: string, options) => {
     runCommand(spec, options);
@@ -45,7 +45,7 @@ program
   .command("resume")
   .description("Resume a stopped or failed run")
   .option("--max-budget <n>", "Max total budget in USD", parseFloat)
-  .option("--dashboard", "Enable live dashboard")
+  .option("--no-dashboard", "Disable live dashboard")
   .option("--port <n>", "Dashboard port", parseInt)
   .action((options) => {
     resumeCommand(options);

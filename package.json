@@ -1,6 +1,6 @@
 {
   "name": "agents-harness",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Multi-agent orchestrator for autonomous software development",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,7 +8,7 @@
     "agents-harness": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp -r src/dashboard/static dist/dashboard/static",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",

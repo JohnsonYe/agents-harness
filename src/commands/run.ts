@@ -110,7 +110,7 @@ export async function runCommand(
   // Dashboard setup
   let dashboard: DashboardServer | null = null;
   if (options.dashboard) {
-    dashboard = new DashboardServer(options.port ?? 3117);
+    dashboard = new DashboardServer(options.port ?? 3117, root);
     await dashboard.start();
     console.log(`Dashboard: ${dashboard.getUrl()}`);
 

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import type { ProjectContext, Progress, EvalResult, HarnessConfig } from "../../src/core/types.js";
+import type {
+  ProjectContext, Progress, EvalResult, HarnessConfig,
+  FileUpdateEvent, StateSnapshotEvent, HarnessEvent,
+} from "../../src/core/types.js";
 
 describe("Core Types", () => {
   it("should construct a valid ProjectContext", () => {
@@ -61,5 +64,38 @@ describe("Core Types", () => {
       maxTotalBudgetUsd: 200,
     };
     expect(config.agents?.planner?.model).toBe("sonnet");
+  });
+
+  it("should construct a valid FileUpdateEvent", () => {
+    const event: FileUpdateEvent = {
+      name: "contract.md",
+      content: "# Contract\nCriteria here",
+    };
+    expect(event.name).toBe("contract.md");
+    expect(event.content).toContain("Contract");
+  });
+
+  it("should construct a valid StateSnapshotEvent", () => {
+    const event: StateSnapshotEvent = {
+      files: { "spec.md": "# Spec content", "contract.md": null },
+      progress: null,
+    };
+    expect(event.files["spec.md"]).toBe("# Spec content");
+    expect(event.files["contract.md"]).toBeNull();
+    expect(event.progress).toBeNull();
+  });
+
+  it("HarnessEvent union includes file:update and state:snapshot", () => {
+    const fileEvent: HarnessEvent = {
+      type: "file:update",
+      data: { name: "spec.md", content: "content" },
+    };
+    expect(fileEvent.type).toBe("file:update");
+
+    const snapshotEvent: HarnessEvent = {
+      type: "state:snapshot",
+      data: { files: {}, progress: null },
+    };
+    expect(snapshotEvent.type).toBe("state:snapshot");
   });
 });
