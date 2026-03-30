@@ -418,6 +418,59 @@ Some issues.`;
     expect(result.dimensions![1].passed).toBe(false);
   });
 
+  it("parses bold markdown score format from real agent output", () => {
+    const root = createTemp();
+    const fp = new FileProtocol(root);
+    fp.ensureDir();
+
+    // This is the actual format the evaluator agent produces
+    const evalContent = `# Sprint Evaluation
+
+Overall: **FAIL**
+Score: **4.1/10**
+
+## Dimensions
+
+### Correctness
+**Score: 4/10** (weight: 2, min: 6/10)
+
+Rationale: Critical functionality is broken. POST has no validation.
+
+### Testing
+**Score: 0/10** (weight: 1.5, min: 5/10)
+
+Rationale: No tests exist whatsoever.
+
+### Code Quality
+**Score: 3/10** (weight: 1, min: 5/10)
+
+Rationale: TODO comments and console.log left in code.
+
+## Critique
+Multiple critical failures.`;
+
+    fp.writeFile("evaluation.md", evalContent);
+
+    const dims: EvalDimension[] = [
+      { id: "correctness", name: "Correctness", description: "", weight: 2.0, threshold: 6, rubric: "" },
+      { id: "testing", name: "Testing", description: "", weight: 1.5, threshold: 5, rubric: "" },
+      { id: "code-quality", name: "Code Quality", description: "", weight: 1.0, threshold: 5, rubric: "" },
+    ];
+
+    const result = fp.parseEvaluation(dims);
+
+    expect(result.passed).toBe(false);
+    expect(result.overallScore).toBe(4.1);
+    expect(result.dimensions).toHaveLength(3);
+    expect(result.dimensions![0].name).toBe("Correctness");
+    expect(result.dimensions![0].score).toBe(4);
+    expect(result.dimensions![1].name).toBe("Testing");
+    expect(result.dimensions![1].score).toBe(0);
+    expect(result.dimensions![2].name).toBe("Code Quality");
+    expect(result.dimensions![2].score).toBe(3);
+    expect(result.critique).toBe("Multiple critical failures.");
+  });
+
   it("legacy format still works unchanged", () => {
     const root = createTemp();
     const fp = new FileProtocol(root);

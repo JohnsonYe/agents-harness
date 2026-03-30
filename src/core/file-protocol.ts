@@ -80,9 +80,9 @@ export class FileProtocol {
       }
     }
 
-    // Parse overall score from header
+    // Parse overall score from header — handles **bold** markdown
     let overallScore = 0;
-    const scoreMatch = content.match(/^Score:\s*([\d.]+)\s*\/\s*10/m);
+    const scoreMatch = content.match(/^(?:\*\*)?Score:?\s*\*?\*?\s*([\d.]+)\s*\/\s*10/m);
     if (scoreMatch) {
       overallScore = parseFloat(scoreMatch[1]);
     }
@@ -105,10 +105,12 @@ export class FileProtocol {
         if (!nameMatch) continue;
         const name = nameMatch[1].trim();
 
-        const dimScoreMatch = block.match(/^Score:\s*(\d+)\s*\/\s*10/m);
+        // Handle **Score: N/10** with optional bold markdown and trailing text
+        const dimScoreMatch = block.match(/\*?\*?Score:?\s*\*?\*?\s*(\d+)\s*\/\s*10/m);
         const score = dimScoreMatch ? parseInt(dimScoreMatch[1], 10) : 0;
 
-        const rationaleMatch = block.match(/^Rationale:\s*([\s\S]*?)$/m);
+        // Rationale may start with bold or be on same/next line
+        const rationaleMatch = block.match(/(?:\*?\*?)?Rationale:?\s*\*?\*?\s*([\s\S]*?)(?=\n\n|\n### |$)/m);
         const rationale = rationaleMatch ? rationaleMatch[1].trim() : "";
 
         const threshold = thresholdMap.get(name.toLowerCase()) ?? 5;
