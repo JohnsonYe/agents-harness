@@ -1,6 +1,6 @@
 {
   "name": "agents-harness",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Multi-agent orchestrator for autonomous software development",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -48,7 +48,7 @@
   "dependencies": {
     "commander": "^14.0.3",
     "dotenv": "^17.3.1",
-"ws": "^8.20.0",
+    "ws": "^8.20.0",
     "yaml": "^2.8.3"
   },
   "devDependencies": {
